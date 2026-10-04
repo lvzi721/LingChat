@@ -672,6 +672,7 @@ pub fn run() {
             Ok(())
         })
         // 注册所有 API 命令
+        .plugin(tauri_plugin_shizuku::init())
         .invoke_handler(tauri::generate_handler![
             utils::log_bridge::get_log_history,
             utils::log_bridge::open_log_window,
