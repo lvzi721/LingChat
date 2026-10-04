@@ -1,0 +1,22 @@
+[package]
+name = "tauri-plugin-shizuku"
+version = "0.1.0"
+description = "Run shell commands via Shizuku (shell uid) on Android"
+authors = ["LingChat"]
+edition = "2021"
+rust-version = "1.77.2"
+license = "MIT"
+links = "tauri-plugin-shizuku"
+
+[lib]
+name = "tauri_plugin_shizuku"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["rt"] }
