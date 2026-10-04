@@ -178,3 +178,4 @@ sbv2_core = { git = "https://gh-proxy.org/github.com/shadow01a/sbv2-api/", defau
 [patch.crates-io]
 esaxx-rs = { path = "patches/esaxx-rs" }
 jpreprocess-naist-jdic = { git = "https://gh-proxy.org/github.com/shadow01a/jpreprocess", branch = "main" }
+tauri-plugin-shizuku = { path = "plugins/tauri-plugin-shizuku" }
