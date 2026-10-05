@@ -288,7 +288,7 @@ pub async fn run_shell_command_in_background_with_timeout(
     )
     .await
 }
-
+#[allow(unreachable_code)]
 async fn run_shell_command_with_limits(
     sandbox_dir: &Path,
     command: &str,
@@ -296,6 +296,12 @@ async fn run_shell_command_with_limits(
     timeout: Duration,
     output_limit: usize,
 ) -> anyhow::Result<CommandOutput> {
+        // Android：不经过 /bin/sh，直接交给 Shizuku 以 shell 身份执行
+    #[cfg(target_os = "android")]
+    {
+        let _ = (sandbox_dir, cwd, output_limit);
+        return run_shell_command_via_shizuku(command, timeout).await;
+    }
     if command.trim().is_empty() {
         anyhow::bail!("命令不能为空");
     }
