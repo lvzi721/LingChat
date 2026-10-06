@@ -289,7 +289,6 @@ pub async fn run_shell_command_in_background_with_timeout(
     .await
 }
 
-#[allow(unreachable_code)]
 async fn run_shell_command_with_limits(
     sandbox_dir: &Path,
     command: &str,
@@ -298,11 +297,6 @@ async fn run_shell_command_with_limits(
     output_limit: usize,
 ) -> anyhow::Result<CommandOutput> {
         // Android：不经过 /bin/sh，直接交给 Shizuku 以 shell 身份执行
-    #[cfg(target_os = "android")]
-    {
-        let _ = (sandbox_dir, cwd, output_limit);
-        return run_shell_command_via_shizuku(command, timeout).await;
-    }
     if command.trim().is_empty() {
         anyhow::bail!("命令不能为空");
     }
@@ -816,59 +810,4 @@ pub async fn execute_command(
     }
 
     run_shell_command(sandbox_dir, command, cwd).await
-}
-// ───────────────────────── Android / Shizuku ─────────────────────────
-
-/// 由 `lib.rs` 的 setup 阶段注入，供 Android 命令执行使用。
-#[cfg(target_os = "android")]
-static SHIZUKU_APP_HANDLE: StdMutex<Option<tauri::AppHandle>> = StdMutex::new(None);
-
-/// 注入 AppHandle（仅 Android 调用）。
-#[cfg(target_os = "android")]
-pub fn set_shizuku_app_handle(handle: tauri::AppHandle) {
-    match SHIZUKU_APP_HANDLE.lock() {
-        Ok(mut guard) => *guard = Some(handle),
-        Err(error) => tracing::warn!("无法写入 Shizuku AppHandle: {error}"),
-    }
-}
-
-/// Android 上以 `uid=2000(shell)` 身份执行命令。
-/// `Shizuku.newProcess` 是阻塞调用，必须放进 blocking 线程池。
-#[cfg(target_os = "android")]
-async fn run_shell_command_via_shizuku(
-    command: &str,
-    timeout: Duration,
-) -> anyhow::Result<CommandOutput> {
-    use tauri_plugin_shizuku::{RunAdbCommandRequest, ShizukuExt};
-
-    if command.trim().is_empty() {
-        anyhow::bail!("命令不能为空");
-    }
-
-    let handle = SHIZUKU_APP_HANDLE
-        .lock()
-        .ok()
-        .and_then(|guard| guard.clone())
-        .ok_or_else(|| anyhow::anyhow!("Shizuku AppHandle 尚未初始化"))?;
-
-    let command = command.to_string();
-    let timeout_ms = timeout.as_millis().min(u64::MAX as u128) as u64;
-
-    let response = tokio::task::spawn_blocking(move || {
-        handle
-            .shizuku()
-            .run_adb_command(RunAdbCommandRequest {
-                command,
-                timeout_ms: Some(timeout_ms),
-            })
-            .map_err(|error| anyhow::anyhow!("Shizuku 执行失败: {error}"))
-    })
-    .await
-    .map_err(|error| anyhow::anyhow!("Shizuku 任务异常: {error}"))??;
-
-    Ok(CommandOutput {
-        stdout: response.stdout,
-        stderr: response.stderr,
-        exit_code: response.exit_code,
-    })
 }
