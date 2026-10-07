@@ -56,7 +56,7 @@ pub struct Shizuku<R: Runtime> {
 
 impl<R: Runtime> Shizuku<R> {
     /// 插件初始化时调用。
-    pub fn init(api: &tauri::plugin::PluginApi<R>) -> Result<Self> {
+    pub fn init<C: DeserializeOwned>(api: &tauri::plugin::PluginApi<R, C>) -> Result<Self> {
         let handle = api
             .register_android_plugin(PLUGIN_IDENTIFIER, PLUGIN_CLASS)
             .map_err(|e| Error::PluginInvoke(e.to_string()))?;
