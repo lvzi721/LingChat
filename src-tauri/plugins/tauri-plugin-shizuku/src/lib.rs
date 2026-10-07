@@ -103,7 +103,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         .setup(|app, api| {
             #[cfg(target_os = "android")]
             {
-                let shizuku = mobile::Shizuku::<R>::init(api)?;
+                let shizuku = mobile::Shizuku::<R>::init(&api)?;
                 // 注册全局执行器，使主工程 command_executor 无需 AppHandle 即可调用。
                 let executor = mobile::make_executor(shizuku.handle());
                 mobile::set_global_executor(executor);
