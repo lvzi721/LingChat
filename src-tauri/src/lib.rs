@@ -1,5 +1,3 @@
-#[cfg(target_os = "android")]
-mod android_shell;
 mod achievements;
 mod adventures;
 mod ai_service;

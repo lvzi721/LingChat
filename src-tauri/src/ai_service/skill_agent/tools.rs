@@ -4,7 +4,6 @@ use std::collections::HashMap;
 
 use serde_json::json;
 
-#[cfg(desktop)]
 use crate::ai_service::skill_agent::command_executor;
 use crate::ai_service::skill_agent::core::SkillAgentRunContext;
 use crate::ai_service::skill_agent::file_tools::FileTools;
@@ -87,7 +86,6 @@ pub fn tool_definitions() -> Vec<ToolDefinition> {
                 "required": ["path"]
             }),
         ),
-        #[cfg(desktop)]
         ToolDefinition::new(
             "execute_command",
             "在本机运行 shell 命令。运行前可能需要用户确认。",
@@ -249,7 +247,6 @@ pub async fn execute_tool(
                 Err(e) => (false, e.to_string()),
             }
         },
-        #[cfg(desktop)]
         "execute_command" => {
             let command = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
             let cwd = args.get("cwd").and_then(|v| v.as_str()).unwrap_or("");
