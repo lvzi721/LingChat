@@ -7,7 +7,7 @@ import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
-import moe.shizuku.api.Shizuku
+import rikka.shizuku.Shizuku
 import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
