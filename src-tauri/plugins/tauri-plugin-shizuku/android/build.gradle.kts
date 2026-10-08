@@ -1,4 +1,4 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 
 plugins {
     id("com.android.library")
@@ -19,8 +19,8 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JvmTarget.JVM_1_8.mavenString
-    }
+    jvmTarget = "1.8"
+}
 }
 
 dependencies {
