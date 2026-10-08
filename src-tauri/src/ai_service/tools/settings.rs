@@ -280,20 +280,21 @@ impl ToolSettings {
         }
     }
 
-    /// 移动端没有可供应用稳定调用的桌面 shell，且 Android/iOS 的分区存储
-    /// 不允许把“任意路径”理解为桌面文件系统访问。加载和保存时都收紧这些选项，
-    /// 避免旧配置继续把不可执行的工具下发给模型。
+    /// iOS 没有可用的命令执行后端；Android 经 Shizuku 执行。移动端的分区
+    /// 存储也不允许把“任意路径”理解为桌面文件系统访问。
     pub fn apply_platform_constraints(&mut self) {
-        if cfg!(any(target_os = "android", target_os = "ios")) {
+        if cfg!(target_os = "ios") {
             self.groups.insert("command".to_string(), false);
             self.command_auto_approve = false;
             self.command_delete_auto_approve = false;
+        }
+        if cfg!(any(target_os = "android", target_os = "ios")) {
             self.file_ops_allow_any_path = false;
         }
     }
 
     pub fn group_supported_on_current_platform(group: &str) -> bool {
-        !(cfg!(any(target_os = "android", target_os = "ios")) && group == "command")
+        !(cfg!(target_os = "ios") && group == "command")
     }
 
     /// 把用户配置同步到权限矩阵的 default 角色组。

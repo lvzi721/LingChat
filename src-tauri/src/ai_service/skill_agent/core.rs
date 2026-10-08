@@ -29,10 +29,10 @@ use crate::ai_service::types::{
 pub type CancelFlag = Arc<AtomicBool>;
 
 /// 截断自动续跑时推给模型的纠正提示。只进内存 `messages`，不落库。
-#[cfg(desktop)]
+#[cfg(not(target_os = "ios"))]
 const CORRECTIVE_HINT: &str = "（系统提示：你上一条回复因输出长度上限被截断且未调用任何工具。请直接调用 write_file / execute_command 完成当前任务，不要再叙述计划。）";
-#[cfg(mobile)]
-const CORRECTIVE_HINT: &str = "（系统提示：你上一条回复因输出长度上限被截断且未调用任何工具。请直接调用 write_file 完成当前任务，不要再叙述计划。移动端不提供 execute_command。）";
+#[cfg(target_os = "ios")]
+const CORRECTIVE_HINT: &str = "（系统提示：你上一条回复因输出长度上限被截断且未调用任何工具。请直接调用 write_file 完成当前任务，不要再叙述计划。iOS 不提供 execute_command。）";
 
 /// 截断自动续跑预算：最多补一次生成；再次截断仍无工具调用则按现状收尾。
 const RECOVERY_BUDGET: usize = 1;
@@ -93,11 +93,11 @@ fn build_system_prompt(
 ) -> String {
     let tool_names = tools::tool_names();
     let platform = if cfg!(mobile) { "移动端" } else { "桌面" };
-    let command_guidance = if cfg!(mobile) {
-        "\n- 当前移动端不提供 execute_command，不能运行 shell 命令\
+    let command_guidance = if cfg!(target_os = "ios") {
+        "\n- iOS 不提供 execute_command，不能运行 shell 命令\
          \n3. 不要尝试调用或编造 execute_command 结果；需要产出文件时使用 write_file"
     } else {
-        "\n- execute_command 可能需要用户确认\
+        "\n- execute_command 可能需要用户确认；Android 上经 Shizuku 以 shell 身份执行\
          \n3. 需要运行本地命令时使用 execute_command；命令由系统 shell 执行，带空格的参数请用引号包裹（引号会原样传递）"
     };
     let default = format!(

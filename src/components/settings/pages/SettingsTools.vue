@@ -663,7 +663,7 @@
 
   const enableAndroidRecommended = () => {
     for (const group of TOOL_GROUP_KEYS) {
-      form.groups[group] = group !== "command";
+      form.groups[group] = true;
     }
     showStatus(t("ui.toolCalls.androidRecommendedStaged"), "#7dd3fc");
   };
@@ -712,9 +712,6 @@
     try {
       normalizeToolRoundLimit();
       normalizeMediaSettings();
-      if (android) {
-        form.groups.command = false;
-      }
       // 深拷贝一份普通对象，避免把 reactive 代理传给 Tauri IPC
       const payload: ToolSettings = JSON.parse(JSON.stringify(form));
       // deepseek 使用官方 /responses 端点；base_url 对该 provider 不可编辑，

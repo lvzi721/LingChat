@@ -196,7 +196,7 @@ export default {
     fileChangeActions: { write: "写入", edit: "编辑" },
     androidTitle: "Android 工具说明",
     androidSummary:
-      "工具设置按设备单独保存，不会从 Windows 同步。请在这台手机上开启需要的工具并点击保存；命令执行和桌面插件在 Android 上不可用。",
+      "工具设置按设备单独保存，不会从 Windows 同步。请在这台手机上开启需要的工具并点击保存；命令执行需先在 Shizuku 中授予 LingChat 权限。",
     androidNoModel: "当前没有可用的聊天模型，请先配置模型、API Key 和模型名称。",
     androidModelUnsupported: "当前聊天模型不支持原生工具调用，请换用支持 function calling 的模型。",
     androidNoTools: "当前角色还没有启用任何可用工具。可逐项开启，或使用下方的推荐配置。",
@@ -282,7 +282,7 @@ export default {
     commandDeleteApprovalMessage:
       "检测到这条命令可能删除文件：\n\n{command}\n\n工作目录：{cwd}\n\n删除通常无法撤销，是否允许执行？",
     commandHint: "每次执行前会弹窗请你确认命令内容；uac 参数可请求管理员权限（Windows 弹 UAC 框）",
-    commandWindowsOnly: "⚠ 命令执行仅桌面端可用，Android 无法运行此工具",
+    commandWindowsOnly: "⚠ 命令执行在 iOS 上不可用",
     commandAutoApprove: "免确认自动执行（ta 跑命令前不再弹窗）",
     commandAutoApproveHint:
       "⚠ 危险！开启后 ta 可以不经你同意运行命令；识别到的删除命令仍由下方独立开关控制",

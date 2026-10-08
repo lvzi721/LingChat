@@ -199,7 +199,7 @@ export default {
     fileChangeActions: { write: "write", edit: "edit" },
     androidTitle: "Android tool notes",
     androidSummary:
-      "Tool settings are stored per device and are not synced from Windows. Enable the tools you need on this phone and save. Command execution and desktop plugins are unavailable on Android.",
+      "Tool settings are stored per device and are not synced from Windows. Enable the tools you need on this phone and save. Command execution requires granting LingChat access in Shizuku.",
     androidNoModel:
       "No usable chat model is configured. Set the model, API key, and model name first.",
     androidModelUnsupported:
@@ -300,7 +300,7 @@ export default {
     commandHint:
       "You will be asked to confirm each command in a popup; the uac parameter requests admin rights (Windows UAC prompt)",
     commandWindowsOnly:
-      "⚠ Command execution is available on desktop only and cannot run on Android",
+      "⚠ Command execution is unavailable on iOS",
     commandAutoApprove: "Run without confirmation (no popup before commands run)",
     commandAutoApproveHint:
       "⚠ Dangerous! Commands can run without consent; detected delete commands remain controlled by the separate switch below",

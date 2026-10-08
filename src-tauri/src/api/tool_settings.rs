@@ -86,7 +86,7 @@ pub async fn get_tool_runtime_info(app: tauri::AppHandle) -> Result<ToolRuntimeI
         platform,
         model_configured,
         native_tool_calls_supported,
-        command_available: cfg!(desktop),
+        command_available: cfg!(not(target_os = "ios")),
         file_ops_app_sandbox_only: cfg!(any(target_os = "android", target_os = "ios")),
         registered_tool_count: state.tool_registry.definitions().len(),
         allowed_tools,
