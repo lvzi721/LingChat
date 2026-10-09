@@ -38,6 +38,17 @@ class ShizukuPlugin(private val activity: Activity) : Plugin(activity) {
             isAvailable() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
         } catch (t: Throwable) { false }
 
+    private fun permissionStatus(): String =
+        try {
+            when (Shizuku.checkSelfPermission()) {
+                PackageManager.PERMISSION_GRANTED -> "granted"
+                PackageManager.PERMISSION_DENIED -> "denied"
+                else -> "unknown"
+            }
+        } catch (t: Throwable) {
+            "check-failed: ${t.message ?: t.javaClass.simpleName}"
+        }
+
     @Command
     fun available(invoke: Invoke) {
         val out = JSObject()
@@ -100,20 +111,20 @@ class ShizukuPlugin(private val activity: Activity) : Plugin(activity) {
                     invoke.resolve(out)
                     return@execute
                 }
-                if (!isGranted()) {
-                    out.put("stdout", "")
-                    out.put("stderr", "Shizuku 权限未授予")
-                    out.put("exitCode", -1)
-                    out.put("timedOut", false)
-                    invoke.resolve(out)
-                    return@execute
-                }
 
-                val process = Shizuku.newProcess(
-                    arrayOf("sh", "-c", command),
-                    null,
-                    cwd.ifBlank { null }
-                )
+                val process = try {
+                    Shizuku.newProcess(
+                        arrayOf("sh", "-c", command),
+                        null,
+                        cwd.ifBlank { null }
+                    )
+                } catch (t: Throwable) {
+                    throw IllegalStateException(
+                        "无法创建 Shizuku shell 进程（包名: ${activity.packageName}, 权限状态: ${permissionStatus()}）: " +
+                            (t.message ?: t.javaClass.simpleName),
+                        t
+                    )
+                }
 
                 val stdoutBuf = StringBuilder()
                 val stderrBuf = StringBuilder()

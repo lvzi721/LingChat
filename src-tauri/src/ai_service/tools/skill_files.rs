@@ -679,7 +679,9 @@ impl ExecuteCommand {
 #[async_trait]
 impl Tool for ExecuteCommand {
     fn definition(&self) -> ToolDefinition {
-        let shell_hint = if cfg!(windows) {
+        let shell_hint = if cfg!(target_os = "android") {
+            "当前运行环境是 Android，命令经 Shizuku 以 shell(uid=2000) 身份执行。不要预先断言没有 Shizuku 权限；直接调用本工具，实际权限和错误以执行结果为准。"
+        } else if cfg!(windows) {
             "当前运行环境是 Windows，命令由 cmd.exe /D /C 执行且没有交互输入；需要 PowerShell 语法时请显式调用 powershell -NoProfile -Command，延时请使用 PowerShell Start-Sleep 而不是依赖控制台输入的 timeout。"
         } else {
             "当前命令由 sh -c 执行。"
