@@ -139,10 +139,17 @@ class ShizukuPlugin(private val activity: Activity) : Plugin(activity) {
                     try {
                         process.exitValue()
                         break
-                    } catch (e: IllegalThreadStateException) {
+                    } catch (t: Throwable) {
+                        // ShizukuRemoteProcess.exitValue() 在进程未退出时，会把服务端的
+                        // IllegalThreadStateException 以 RuntimeException 跨 Binder 抛回，
+                        // 因此这里必须按 Throwable 处理，不能只捕获 IllegalThreadStateException。
                         if (timeoutMs > 0L && System.currentTimeMillis() > deadline) {
                             timedOut = true
-                            process.destroy()
+                            try {
+                                process.destroy()
+                            } catch (ignored: Throwable) {
+                                // 进程可能已结束或 Binder 已断开，超时结果仍然有效。
+                            }
                             break
                         }
                         Thread.sleep(50)
