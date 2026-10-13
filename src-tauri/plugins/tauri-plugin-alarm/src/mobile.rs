@@ -23,9 +23,7 @@ static GLOBAL_INVOKER: OnceLock<Invoker> = OnceLock::new();
 #[derive(Debug, Deserialize)]
 struct MobileEnvelope<T> {
     ok: bool,
-    #[serde(default)]
     data: Option<T>,
-    #[serde(default)]
     error: Option<String>,
 }
 
