@@ -98,6 +98,75 @@ pub fn tool_definitions() -> Vec<ToolDefinition> {
                 "required": ["command"]
             }),
         ),
+        ToolDefinition::new(
+            "alarm_list",
+            "列出 LingChat 自己创建的闹钟，包括时间、重复星期、启用状态、铃声和下一次响铃时间。",
+            json!({"type": "object", "properties": {}}),
+        ),
+        ToolDefinition::new(
+            "alarm_upsert",
+            "创建或更新一个 LingChat 自建闹钟。days 为空表示仅响一次；周日至周六分别用 1-7 表示；要每天响传 [1,2,3,4,5,6,7]。",
+            json!({
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string", "description": "更新已有闹钟时传 alarm_list 返回的 id；新建时省略"},
+                    "label": {"type": "string", "description": "闹钟名称，例如“起床”"},
+                    "hour": {"type": "integer", "description": "小时，0-23"},
+                    "minute": {"type": "integer", "description": "分钟，0-59"},
+                    "days": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "description": "重复星期：周日=1，周一=2，...，周六=7；空数组表示仅响一次"
+                    },
+                    "enabled": {"type": "boolean", "description": "是否启用，默认 true"},
+                    "ringtoneUri": {"type": "string", "description": "铃声 URI，可先调用 alarm_list_ringtones 获取"}
+                },
+                "required": ["hour", "minute"]
+            }),
+        ),
+        ToolDefinition::new(
+            "alarm_cancel",
+            "永久取消并删除一个 LingChat 自建闹钟。",
+            json!({
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string", "description": "alarm_list 返回的闹钟 id"}
+                },
+                "required": ["id"]
+            }),
+        ),
+        ToolDefinition::new(
+            "alarm_list_ringtones",
+            "列出设备可用于 LingChat 闹钟的铃声，返回标题和 URI。",
+            json!({"type": "object", "properties": {}}),
+        ),
+        ToolDefinition::new(
+            "alarm_set_ringtone",
+            "修改一个 LingChat 自建闹钟的铃声。先调用 alarm_list_ringtones 获取 URI。",
+            json!({
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string", "description": "要修改的闹钟 id"},
+                    "uri": {"type": "string", "description": "铃声 URI；silent 表示静音"}
+                },
+                "required": ["id", "uri"]
+            }),
+        ),
+        ToolDefinition::new(
+            "alarm_stop",
+            "立即停止当前正在响铃的 LingChat 闹钟。它不会删除或关闭未来闹钟。",
+            json!({"type": "object", "properties": {}}),
+        ),
+        ToolDefinition::new(
+            "alarm_permissions",
+            "查看 LingChat 闹钟的通知、精确闹钟和电池优化权限状态。",
+            json!({"type": "object", "properties": {}}),
+        ),
+        ToolDefinition::new(
+            "alarm_request_permissions",
+            "打开 LingChat 闹钟所需的系统授权页面。可能一次只处理一项，之后可再次调用查看状态。",
+            json!({"type": "object", "properties": {}}),
+        ),
     ]
 }
 
@@ -265,6 +334,213 @@ pub async fn execute_tool(
             {
                 Ok(out) => (out.exit_code == 0, out.to_prompt_string()),
                 Err(e) => (false, e.to_string()),
+            }
+        },
+        "alarm_list" => {
+            #[cfg(target_os = "android")]
+            {
+                match tauri_plugin_alarm::global_list().await {
+                    Ok(response) => match serde_json::to_string_pretty(&response) {
+                        Ok(output) => (true, output),
+                        Err(error) => (false, format!("序列化闹钟列表失败: {error}")),
+                    },
+                    Err(error) => (false, error.to_string()),
+                }
+            }
+            #[cfg(not(target_os = "android"))]
+            {
+                (false, "闹钟功能仅在 Android 平台可用".into())
+            }
+        },
+        "alarm_upsert" => {
+            #[cfg(target_os = "android")]
+            {
+                let some_string = |key: &str| {
+                    args.get(key)
+                        .and_then(|value| value.as_str())
+                        .map(str::trim)
+                        .filter(|value| !value.is_empty())
+                        .map(str::to_string)
+                };
+                let days = match args.get("days") {
+                    None => Vec::new(),
+                    Some(value) => {
+                        let Some(values) = value.as_array() else {
+                            return (false, "days 必须是整数数组".into());
+                        };
+                        let mut days = Vec::with_capacity(values.len());
+                        for value in values {
+                            let Some(day) = value.as_u64() else {
+                                return (false, "days 只能包含整数".into());
+                            };
+                            if !(1..=7).contains(&day) {
+                                return (false, "days 只能包含 1-7（周日=1）".into());
+                            }
+                            let day = day as u8;
+                            if !days.contains(&day) {
+                                days.push(day);
+                            }
+                        }
+                        days
+                    }
+                };
+                let Some(hour) = args
+                    .get("hour")
+                    .and_then(|value| value.as_u64())
+                    .and_then(|value| u8::try_from(value).ok())
+                else {
+                    return (false, "hour 必须是 0-23 的整数".into());
+                };
+                let Some(minute) = args
+                    .get("minute")
+                    .and_then(|value| value.as_u64())
+                    .and_then(|value| u8::try_from(value).ok())
+                else {
+                    return (false, "minute 必须是 0-59 的整数".into());
+                };
+                let req = tauri_plugin_alarm::UpsertAlarmRequest {
+                    id: some_string("id"),
+                    label: some_string("label"),
+                    hour,
+                    minute,
+                    days,
+                    enabled: args
+                        .get("enabled")
+                        .and_then(|value| value.as_bool())
+                        .unwrap_or(true),
+                    ringtone_uri: some_string("ringtoneUri"),
+                };
+                match tauri_plugin_alarm::global_upsert(req).await {
+                    Ok(alarm) => match serde_json::to_string_pretty(&alarm) {
+                        Ok(output) => (true, output),
+                        Err(error) => (false, format!("序列化闹钟失败: {error}")),
+                    },
+                    Err(error) => (false, error.to_string()),
+                }
+            }
+            #[cfg(not(target_os = "android"))]
+            {
+                (false, "闹钟功能仅在 Android 平台可用".into())
+            }
+        },
+        "alarm_cancel" => {
+            #[cfg(target_os = "android")]
+            {
+                let Some(id) = args.get("id").and_then(|value| value.as_str()) else {
+                    return (false, "缺少 id 参数".into());
+                };
+                match tauri_plugin_alarm::global_cancel(
+                    tauri_plugin_alarm::CancelAlarmRequest { id: id.to_string() },
+                )
+                .await
+                {
+                    Ok(response) => match serde_json::to_string_pretty(&response) {
+                        Ok(output) => (response.ok, output),
+                        Err(error) => (false, format!("序列化结果失败: {error}")),
+                    },
+                    Err(error) => (false, error.to_string()),
+                }
+            }
+            #[cfg(not(target_os = "android"))]
+            {
+                (false, "闹钟功能仅在 Android 平台可用".into())
+            }
+        },
+        "alarm_list_ringtones" => {
+            #[cfg(target_os = "android")]
+            {
+                match tauri_plugin_alarm::global_list_ringtones().await {
+                    Ok(response) => match serde_json::to_string_pretty(&response) {
+                        Ok(output) => (true, output),
+                        Err(error) => (false, format!("序列化铃声列表失败: {error}")),
+                    },
+                    Err(error) => (false, error.to_string()),
+                }
+            }
+            #[cfg(not(target_os = "android"))]
+            {
+                (false, "闹钟功能仅在 Android 平台可用".into())
+            }
+        },
+        "alarm_set_ringtone" => {
+            #[cfg(target_os = "android")]
+            {
+                let Some(id) = args.get("id").and_then(|value| value.as_str()) else {
+                    return (false, "缺少 id 参数".into());
+                };
+                let Some(uri) = args.get("uri").and_then(|value| value.as_str()) else {
+                    return (false, "缺少 uri 参数".into());
+                };
+                match tauri_plugin_alarm::global_set_ringtone(
+                    tauri_plugin_alarm::SetRingtoneRequest {
+                        id: id.to_string(),
+                        uri: uri.to_string(),
+                    },
+                )
+                .await
+                {
+                    Ok(alarm) => match serde_json::to_string_pretty(&alarm) {
+                        Ok(output) => (true, output),
+                        Err(error) => (false, format!("序列化闹钟失败: {error}")),
+                    },
+                    Err(error) => (false, error.to_string()),
+                }
+            }
+            #[cfg(not(target_os = "android"))]
+            {
+                (false, "闹钟功能仅在 Android 平台可用".into())
+            }
+        },
+        "alarm_stop" => {
+            #[cfg(target_os = "android")]
+            {
+                match tauri_plugin_alarm::global_stop(
+                    tauri_plugin_alarm::StopAlarmRequest { id: None },
+                )
+                .await
+                {
+                    Ok(response) => match serde_json::to_string_pretty(&response) {
+                        Ok(output) => (response.ok, output),
+                        Err(error) => (false, format!("序列化结果失败: {error}")),
+                    },
+                    Err(error) => (false, error.to_string()),
+                }
+            }
+            #[cfg(not(target_os = "android"))]
+            {
+                (false, "闹钟功能仅在 Android 平台可用".into())
+            }
+        },
+        "alarm_permissions" => {
+            #[cfg(target_os = "android")]
+            {
+                match tauri_plugin_alarm::global_permissions().await {
+                    Ok(permissions) => match serde_json::to_string_pretty(&permissions) {
+                        Ok(output) => (true, output),
+                        Err(error) => (false, format!("序列化权限状态失败: {error}")),
+                    },
+                    Err(error) => (false, error.to_string()),
+                }
+            }
+            #[cfg(not(target_os = "android"))]
+            {
+                (false, "闹钟功能仅在 Android 平台可用".into())
+            }
+        },
+        "alarm_request_permissions" => {
+            #[cfg(target_os = "android")]
+            {
+                match tauri_plugin_alarm::global_request_permissions().await {
+                    Ok(permissions) => match serde_json::to_string_pretty(&permissions) {
+                        Ok(output) => (true, output),
+                        Err(error) => (false, format!("序列化权限状态失败: {error}")),
+                    },
+                    Err(error) => (false, error.to_string()),
+                }
+            }
+            #[cfg(not(target_os = "android"))]
+            {
+                (false, "闹钟功能仅在 Android 平台可用".into())
             }
         },
         other => (false, format!("未知工具: {}", other)),
