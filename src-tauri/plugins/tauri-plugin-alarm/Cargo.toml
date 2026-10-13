@@ -1,0 +1,22 @@
+[package]
+name = "tauri-plugin-alarm"
+version = "0.1.0"
+description = "LingChat-owned alarms backed by Android AlarmManager"
+authors = ["LingChat"]
+edition = "2021"
+rust-version = "1.77.2"
+license = "MIT"
+links = "tauri-plugin-alarm"
+
+[lib]
+name = "tauri_plugin_alarm"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
