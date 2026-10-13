@@ -605,7 +605,8 @@
   const runtimeInfo = ref<ToolRuntimeInfo | null>(null);
   const commandAvailable = computed(() => runtimeInfo.value?.commandAvailable ?? !android);
 
-  const navItems = ["access", "web_search", ...TOOL_GROUP_KEYS] as const;
+  const visibleGroupKeys = TOOL_GROUP_KEYS.filter((group) => group !== "alarm" || android);
+  const navItems = ["access", "web_search", ...visibleGroupKeys] as const;
   const accessModes: ToolAccessMode[] = ["manual", "auto_approve", "full_access"];
   const DEFAULT_TOOL_ROUND_LIMIT = 8;
   const MIN_TOOL_ROUND_LIMIT = 1;

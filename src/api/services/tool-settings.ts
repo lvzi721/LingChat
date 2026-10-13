@@ -34,7 +34,7 @@ export type ToolAccessMode = "manual" | "auto_approve" | "full_access";
 export interface ToolSettings {
   web_search: WebSearchSettings;
   media_file: MediaFileSettings;
-  /** 分组开关：组名 → 是否启用（schedule/memory/character/scene/status/clock/skills/media/file_ops/command） */
+  /** 分组开关：组名 → 是否启用（schedule/memory/character/scene/status/clock/skills/media/file_ops/command/alarm） */
   groups: Record<string, boolean>;
   /** 文件修改与命令执行的统一审批模式。 */
   access_mode: ToolAccessMode;
@@ -68,6 +68,7 @@ export const TOOL_GROUP_KEYS = [
   "media",
   "file_ops",
   "command",
+  "alarm",
 ] as const;
 
 /** 工具的界面友好名（通知与调用记录用），查不到翻译时回退原始名。 */

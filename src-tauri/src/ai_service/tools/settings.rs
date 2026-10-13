@@ -67,6 +67,19 @@ pub const TOOL_GROUPS: &[(&str, &[&str])] = &[
         ],
     ),
     ("command", &["execute_command"]),
+    (
+        "alarm",
+        &[
+            "alarm_list",
+            "alarm_upsert",
+            "alarm_cancel",
+            "alarm_list_ringtones",
+            "alarm_set_ringtone",
+            "alarm_stop",
+            "alarm_permissions",
+            "alarm_request_permissions",
+        ],
+    ),
 ];
 
 /// 网页搜索工具配置。
@@ -294,6 +307,9 @@ impl ToolSettings {
     }
 
     pub fn group_supported_on_current_platform(group: &str) -> bool {
+        if group == "alarm" {
+            return cfg!(target_os = "android");
+        }
         !(cfg!(target_os = "ios") && group == "command")
     }
 

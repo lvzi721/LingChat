@@ -1,4 +1,5 @@
 pub mod background_command;
+pub mod alarm;
 pub mod character;
 pub mod clock;
 pub mod executor;
@@ -27,6 +28,7 @@ use crate::AppState;
 use crate::ai_service::game_system::game_status::GameStatus;
 
 use character::{CharacterList, CharacterSwitch};
+use alarm::{AlarmTool, AlarmToolKind};
 use clock::CurrentTimeTool;
 use memory::{AddNote, DeleteNote, GetCurrentMemory, GetNotes, UpdateNote};
 use permissions::CONFIG_FILE_NAME;
@@ -126,6 +128,14 @@ pub fn built_in_registry(
     registry.register(Arc::new(Grep::new(tool_settings.clone())))?;
     // Android 上经 Shizuku（uid=2000 shell）执行；桌面走本地进程。
     registry.register(Arc::new(ExecuteCommand::new(tool_settings.clone())))?;
+    registry.register(Arc::new(AlarmTool::new(AlarmToolKind::List)))?;
+    registry.register(Arc::new(AlarmTool::new(AlarmToolKind::Upsert)))?;
+    registry.register(Arc::new(AlarmTool::new(AlarmToolKind::Cancel)))?;
+    registry.register(Arc::new(AlarmTool::new(AlarmToolKind::ListRingtones)))?;
+    registry.register(Arc::new(AlarmTool::new(AlarmToolKind::SetRingtone)))?;
+    registry.register(Arc::new(AlarmTool::new(AlarmToolKind::Stop)))?;
+    registry.register(Arc::new(AlarmTool::new(AlarmToolKind::Permissions)))?;
+    registry.register(Arc::new(AlarmTool::new(AlarmToolKind::RequestPermissions)))?;
     let data_dir = crate::api::data_dir();
     let mut permissions = ToolPermissionConfig::load_or_create(
         &data_dir,

@@ -281,6 +281,7 @@ export default {
       media: "Media Recognition",
       file_ops: "File Operations",
       command: "Command",
+      alarm: "Alarms",
     },
     otherToolsHint:
       "Once enabled, they can use these tools on their own while chatting (applies after saving)",
@@ -324,6 +325,7 @@ export default {
       media: "Media Recognition (read images and videos with the vision model)",
       file_ops: "File Operations (list/read/write/delete/edit/search files in the data sandbox)",
       command: "Command Execution (run shell commands on this machine)",
+      alarm: "Alarms (create, list, change ringtone, or cancel LingChat alarms)",
     },
     tools: {
       web_search: "Web Search",
@@ -356,6 +358,14 @@ export default {
       glob: "Glob Files",
       grep: "Grep Content",
       execute_command: "Run Command",
+      alarm_list: "List Alarms",
+      alarm_upsert: "Create or Update Alarm",
+      alarm_cancel: "Cancel Alarm",
+      alarm_list_ringtones: "List Alarm Ringtones",
+      alarm_set_ringtone: "Set Alarm Ringtone",
+      alarm_stop: "Stop Ringing",
+      alarm_permissions: "Alarm Permissions",
+      alarm_request_permissions: "Request Alarm Permissions",
     },
   },
   todoPage: {

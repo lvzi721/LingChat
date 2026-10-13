@@ -279,6 +279,7 @@ export default {
       media: "メディア認識",
       file_ops: "ファイル操作",
       command: "コマンド実行",
+      alarm: "アラーム",
     },
     otherToolsHint:
       "オンにすると、あの子がチャット中にこれらのツールを自分で使えるようになるよ（保存後に有効）",
@@ -321,6 +322,7 @@ export default {
       media: "メディア認識（ビジョンモデルで画像と動画を読み取る）",
       file_ops: "ファイル操作（data サンドボックス内の一覧/読取/書込/削除/編集/検索）",
       command: "コマンド実行（このPCで shell コマンドを実行）",
+      alarm: "アラーム（LingChat 自前のアラーム作成・一覧・着信音変更・削除）",
     },
     tools: {
       web_search: "ウェブ検索",
@@ -353,6 +355,14 @@ export default {
       glob: "Glob ファイル検索",
       grep: "Grep 内容検索",
       execute_command: "コマンド実行",
+      alarm_list: "アラーム一覧",
+      alarm_upsert: "アラーム作成・更新",
+      alarm_cancel: "アラーム削除",
+      alarm_list_ringtones: "アラーム着信音一覧",
+      alarm_set_ringtone: "アラーム着信音変更",
+      alarm_stop: "鳴動停止",
+      alarm_permissions: "アラーム権限",
+      alarm_request_permissions: "アラーム権限を要求",
     },
   },
   todoPage: {
