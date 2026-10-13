@@ -37,6 +37,7 @@ tauri-plugin-notification = "2.4"
 tauri-plugin-screenshots = { path = "plugins/tauri-plugin-screenshots" }
 tauri-plugin-android-fs = "28"
 tauri-plugin-shizuku = { path = "plugins/tauri-plugin-shizuku" }
+tauri-plugin-alarm = { path = "plugins/tauri-plugin-alarm" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 toml = "0.8"
