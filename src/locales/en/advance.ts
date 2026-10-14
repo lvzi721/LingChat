@@ -8,6 +8,7 @@ export default {
     tts: "TTS Settings",
     asr: "Speech Recognition",
     cast: "Cast Settings",
+    alarm: "Alarms",
   },
   menu: {
     llmTitle: "LLM Management",
@@ -17,6 +18,10 @@ export default {
     toolsTitle: "Tool Settings",
     toolsDesc: "Configure the tools AI can use, like web search (looking things up online)",
     toolsButton: "Open Tool Settings",
+    alarmTitle: "Alarm Management",
+    alarmDesc:
+      "Create, edit, and delete LingChat's own alarms, with repeat days and ringtone",
+    alarmButton: "Open Alarm Management",
     ttsTitle: "TTS Settings",
     ttsDesc:
       "Download and manage DeBERTa and character voice models to use the local TTS engine offline, or use cloud voice cloning (CosyVoice) to create your own voices",

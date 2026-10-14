@@ -79,6 +79,25 @@
       </MenuItem>
     </div>
 
+    <!-- 闹钟管理（仅 Android 有 AlarmManager） -->
+    <div
+      v-if="android"
+      class="h-full cursor-pointer transition-all duration-300"
+      @click="emit('navigate', 'alarm')"
+    >
+      <MenuItem :title="$t('advance.menu.alarmTitle')" size="large">
+        <template #header>
+          <AlarmClock :size="20" />
+        </template>
+        <p class="mb-3 min-h-17 text-sm leading-relaxed text-white/50">
+          {{ $t("advance.menu.alarmDesc") }}
+        </p>
+        <Button type="big" icon="setting" :icon_size="18">
+          {{ $t("advance.menu.alarmButton") }}
+        </Button>
+      </MenuItem>
+    </div>
+
     <!-- 投屏设置 -->
     <div
       class="h-full cursor-pointer transition-all duration-300"
@@ -144,6 +163,7 @@
 
 <script setup lang="ts">
   import {
+    AlarmClock,
     AudioLines,
     BookOpen,
     Cast,
@@ -158,11 +178,13 @@
   import { MenuItem } from "../../ui";
   import { Button } from "../../base";
   import { SUPPORTED_LOCALES, setLocale, type AppLocale } from "@/locales";
+  import { isAndroid } from "@/utils/platform";
 
   const { locale } = useI18n();
+  const android = isAndroid();
 
   const emit = defineEmits<{
-    navigate: [tab: "llm" | "tts" | "asr" | "other" | "tools" | "cast"];
+    navigate: [tab: "llm" | "tts" | "asr" | "other" | "tools" | "cast" | "alarm"];
   }>();
 
   // 内置 TTS 官方教程（LingBlog）

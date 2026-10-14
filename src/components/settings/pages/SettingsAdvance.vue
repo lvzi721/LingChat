@@ -73,6 +73,18 @@
           {{ $t("advance.tabs.cast") }}
         </button>
         <button
+          v-if="android"
+          class="rounded-md px-4 py-1.5 text-sm font-medium transition-all duration-200"
+          :class="
+            advanceTab === 'alarm'
+              ? 'bg-brand text-white shadow-[0_2px_8px_rgba(0,0,0,0.3)]'
+              : 'text-white/60 hover:text-white/80'
+          "
+          @click="advanceTab = 'alarm'"
+        >
+          {{ $t("advance.tabs.alarm") }}
+        </button>
+        <button
           class="rounded-md px-4 py-1.5 text-sm font-medium transition-all duration-200"
           :class="
             advanceTab === 'other'
@@ -115,6 +127,11 @@
         <SettingsCast />
       </div>
 
+      <!-- ====== 闹钟管理 ====== -->
+      <div v-else-if="advanceTab === 'alarm'" class="min-h-0 flex-1">
+        <SettingsAlarm />
+      </div>
+
       <!-- ====== 其他高级设置 ====== -->
       <div v-else class="min-h-0 flex-1">
         <SettingsAdvanceOther
@@ -137,8 +154,11 @@
   import SettingsAdvanceOther from "./SettingsAdvanceOther.vue";
   import { useUIStore } from "@/stores/modules/ui/ui";
   import SettingsCast from "./SettingsCast.vue";
+  import SettingsAlarm from "./SettingsAlarm.vue";
+  import { isAndroid } from "@/utils/platform";
 
   const uiStore = useUIStore();
+  const android = isAndroid();
 
   // 子标签状态放在 ui store，供「日程 → 工具调用」等入口直接跳转定位
   const advanceTab = computed({

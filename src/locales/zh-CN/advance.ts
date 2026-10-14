@@ -7,6 +7,7 @@ export default {
     tts: "TTS 设置",
     asr: "语音识别",
     cast: "投屏设置",
+    alarm: "闹钟",
   },
   menu: {
     llmTitle: "大模型管理",
@@ -15,6 +16,9 @@ export default {
     toolsTitle: "工具配置",
     toolsDesc: "配置 AI 可调用的工具，比如网页搜索（联网查资料）",
     toolsButton: "进入工具配置界面",
+    alarmTitle: "闹钟管理",
+    alarmDesc: "新建、修改、删除 LingChat 自己的闹钟，设置重复星期与铃声",
+    alarmButton: "进入闹钟管理界面",
     ttsTitle: "TTS 设置",
     ttsDesc:
       "下载并管理 DeBERTa 与人物语音模型，离线使用本地 TTS 引擎；也可使用云端语音克隆（CosyVoice）创建专属音色",
