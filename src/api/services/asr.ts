@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 
-export type AsrSource = "button" | "auto";
+export type AsrSource = "button" | "auto" | "wake";
 export type SendMode = "fill_only" | "auto_send";
 export type AsrPhase = "idle" | "recording" | "recognizing";
 

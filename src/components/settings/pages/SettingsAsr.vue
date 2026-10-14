@@ -19,6 +19,121 @@
       </Toggle>
     </section>
 
+    <!-- Android 锁屏本地唤醒词：前台服务持续监听设备端唤醒词 -->
+    <section v-if="isAndroid()" class="mb-6 rounded-lg border border-white/10 bg-white/5 p-4">
+      <div class="text-brand mb-3 font-medium">{{ t("settings.asr.wake.title") }}</div>
+      <Toggle :checked="wakeSettings.enabled" :disabled="wakeBusy" @change="setWakeEnabled">
+        <span class="font-medium">{{ t("settings.asr.wake.enable") }}</span>
+        <span class="mt-0.5 block text-sm text-gray-300">
+          {{ t("settings.asr.wake.enableHint") }}
+        </span>
+      </Toggle>
+
+      <div class="mt-4">
+        <label class="mb-1.5 block text-sm font-medium">{{ t("settings.asr.wake.phrase") }}</label>
+        <div class="flex gap-2">
+          <input
+            v-model.trim="wakeSettings.phrase"
+            maxlength="24"
+            :placeholder="t('settings.asr.wake.phrasePlaceholder')"
+            class="shadow-glass focus:border-brand focus:ring-brand/20 min-w-0 flex-1 rounded-lg
+              border border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white backdrop-blur-xl
+              backdrop-saturate-150 transition-all duration-200 focus:ring-2 focus:outline-none"
+            @keyup.enter="saveWakeSettings"
+          />
+          <button
+            type="button"
+            :disabled="wakeBusy"
+            class="bg-brand rounded-lg px-4 py-2 text-sm text-white transition-colors duration-200
+              hover:bg-[#0056b3] disabled:cursor-not-allowed disabled:opacity-50"
+            @click="saveWakeSettings"
+          >
+            {{ t("settings.asr.wake.save") }}
+          </button>
+        </div>
+        <p class="mt-1.5 text-sm text-gray-300">{{ t("settings.asr.wake.phraseHint") }}</p>
+      </div>
+
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          :disabled="wakeBusy"
+          class="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/80
+            transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+          @click="requestWakePermissions"
+        >
+          {{ t("settings.asr.wake.requestPermissions") }}
+        </button>
+        <button
+          type="button"
+          :disabled="wakeBusy"
+          class="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/80
+            transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+          @click="openWakeSystemSettings"
+        >
+          {{ t("settings.asr.wake.openSettings") }}
+        </button>
+      </div>
+
+      <p
+        v-if="wakeMessage"
+        class="mt-3 text-sm"
+        :class="wakeMessageOk ? 'text-green-400' : 'text-red-400'"
+      >
+        {{ wakeMessage }}
+      </p>
+
+      <div class="mt-4 space-y-1 border-t border-white/10 pt-3 text-sm text-gray-300">
+        <div>
+          {{ t("settings.asr.wake.deviceSupport") }}:
+          <span :class="wakeStatus.onDeviceAvailable ? 'text-green-400' : 'text-red-400'">
+            {{
+              wakeStatus.onDeviceAvailable
+                ? t("settings.asr.wake.supported")
+                : t("settings.asr.wake.unsupported")
+            }}
+          </span>
+        </div>
+        <div>
+          {{ t("settings.asr.wake.microphone") }}:
+          <span :class="wakeStatus.permissionGranted ? 'text-green-400' : 'text-red-400'">
+            {{
+              wakeStatus.permissionGranted
+                ? t("settings.asr.wake.granted")
+                : t("settings.asr.wake.notGranted")
+            }}
+          </span>
+        </div>
+        <div>
+          {{ t("settings.asr.wake.notifications") }}:
+          <span
+            :class="wakeStatus.notificationPermissionGranted ? 'text-green-400' : 'text-red-400'"
+          >
+            {{
+              wakeStatus.notificationPermissionGranted
+                ? t("settings.asr.wake.granted")
+                : t("settings.asr.wake.notGranted")
+            }}
+          </span>
+        </div>
+        <div>
+          {{ t("settings.asr.wake.service") }}:
+          <span :class="wakeStatus.serviceRunning ? 'text-green-400' : 'text-gray-400'">
+            {{
+              wakeStatus.serviceRunning
+                ? t("settings.asr.wake.running")
+                : t("settings.asr.wake.stopped")
+            }}
+          </span>
+        </div>
+        <div v-if="wakeStatus.lastError" class="text-red-400">
+          {{ t("settings.asr.wake.lastError") }}:
+          {{ wakeErrorText(wakeStatus.lastError) }}
+        </div>
+      </div>
+      <p class="mt-3 text-xs text-gray-400">{{ t("settings.asr.wake.huaweiHint") }}</p>
+    </section>
+
     <!-- 自动语音识别开关 -->
     <section class="mb-6">
       <Toggle
@@ -242,6 +357,16 @@
   import { asrListModels, asrRecognizeWav, asrGetStatus } from "@/api/services/asr";
   import { pcmToWavPcm16, trimSilencePcm } from "@/utils/asrAudio";
   import { parseAsrError } from "@/utils/asrError";
+  import { isAndroid } from "@/utils/platform";
+  import {
+    voiceWakeGetSettings,
+    voiceWakeGetStatus,
+    voiceWakeOpenSystemSettings,
+    voiceWakeRequestPermissions,
+    voiceWakeSaveSettings,
+    type VoiceWakeSettings,
+    type VoiceWakeStatus,
+  } from "@/api/services/voice-wake";
   import type { AsrSettings, SendMode, ProviderInfo } from "@/api/services/asr";
 
   const { t, te } = useI18n();
@@ -251,6 +376,23 @@
   // DataCloneError，导致 setup 崩溃整页空白；JSON 序列化无此问题）
   const localSettings = ref<AsrSettings>(JSON.parse(JSON.stringify(asrStore.settings)));
   const lastTestResult = ref<{ ok: boolean; text: string } | null>(null);
+  const wakeSettings = ref<VoiceWakeSettings>({ enabled: false, phrase: "灵灵" });
+  const wakeStatus = ref<VoiceWakeStatus>({
+    supported: false,
+    serviceRunning: false,
+    onDeviceAvailable: false,
+    permissionGranted: false,
+    notificationPermissionGranted: false,
+    suspended: false,
+    phrase: "灵灵",
+    lastDetectionSerial: 0,
+    lastDetectionAt: 0,
+    lastDetectionTranscript: null,
+    lastError: null,
+  });
+  const wakeBusy = ref(false);
+  const wakeMessage = ref("");
+  const wakeMessageOk = ref(false);
 
   let saveTimer: number | null = null;
   /** 初始化完成标记：onMounted 赋值后置 true，跳过一次初始化触发的保存 */
@@ -273,6 +415,69 @@
     cfg.model = m.id;
     if (m.endpoint) {
       cfg.endpoint = m.endpoint;
+    }
+  }
+
+  function wakeErrorText(code: string): string {
+    const key = `settings.asr.wake.errors.${code}`;
+    return te(key) ? t(key) : code;
+  }
+
+  async function refreshWakeStatus() {
+    if (!isAndroid()) return;
+    try {
+      wakeStatus.value = await voiceWakeGetStatus();
+    } catch (error) {
+      wakeMessage.value = t("settings.asr.wake.statusFailed", { error: String(error) });
+      wakeMessageOk.value = false;
+    }
+  }
+
+  async function saveWakeSettings() {
+    if (wakeBusy.value) return;
+    wakeBusy.value = true;
+    wakeMessage.value = "";
+    try {
+      const status = await voiceWakeSaveSettings({
+        enabled: wakeSettings.value.enabled,
+        phrase: wakeSettings.value.phrase,
+      });
+      wakeStatus.value = status;
+      wakeSettings.value.phrase = status.phrase;
+      wakeMessage.value = t("settings.asr.wake.saved");
+      wakeMessageOk.value = true;
+    } catch (error) {
+      wakeMessage.value = t("settings.asr.wake.saveFailed", { error: String(error) });
+      wakeMessageOk.value = false;
+      await refreshWakeStatus();
+    } finally {
+      wakeBusy.value = false;
+    }
+  }
+
+  async function setWakeEnabled(enabled: boolean) {
+    wakeSettings.value.enabled = enabled;
+    await saveWakeSettings();
+  }
+
+  async function requestWakePermissions() {
+    try {
+      await voiceWakeRequestPermissions();
+      wakeMessage.value = t("settings.asr.wake.permissionRequested");
+      wakeMessageOk.value = true;
+      window.setTimeout(() => void refreshWakeStatus(), 1500);
+    } catch (error) {
+      wakeMessage.value = t("settings.asr.wake.permissionFailed", { error: String(error) });
+      wakeMessageOk.value = false;
+    }
+  }
+
+  async function openWakeSystemSettings() {
+    try {
+      await voiceWakeOpenSystemSettings();
+    } catch (error) {
+      wakeMessage.value = t("settings.asr.wake.openSettingsFailed", { error: String(error) });
+      wakeMessageOk.value = false;
     }
   }
 
@@ -408,6 +613,19 @@
     asrGetStatus()
       .then((s) => asrStore.setVadLoaded(s.vad_loaded))
       .catch((e) => console.warn("[ASR] 查询状态失败:", e));
+
+    if (isAndroid()) {
+      try {
+        const [settings, status] = await Promise.all([
+          voiceWakeGetSettings(),
+          voiceWakeGetStatus(),
+        ]);
+        wakeSettings.value = settings;
+        wakeStatus.value = status;
+      } catch (error) {
+        console.warn("[VoiceWake] 读取设置失败:", error);
+      }
+    }
   });
 
   watch(

@@ -37,7 +37,7 @@ tauri-plugin-notification = "2.4"
 tauri-plugin-screenshots = { path = "plugins/tauri-plugin-screenshots" }
 tauri-plugin-android-fs = "28"
 tauri-plugin-shizuku = { path = "plugins/tauri-plugin-shizuku" }
-tauri-plugin-alarm = { path = "plugins/tauri-plugin-alarm" }
+tauri-plugin-voice-wake = { path = "plugins/tauri-plugin-voice-wake" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 toml = "0.8"
@@ -181,3 +181,4 @@ sbv2_core = { git = "https://gh-proxy.org/github.com/shadow01a/sbv2-api/", defau
 esaxx-rs = { path = "patches/esaxx-rs" }
 jpreprocess-naist-jdic = { git = "https://gh-proxy.org/github.com/shadow01a/jpreprocess", branch = "main" }
 tauri-plugin-shizuku = { path = "plugins/tauri-plugin-shizuku" }
+tauri-plugin-voice-wake = { path = "plugins/tauri-plugin-voice-wake" }

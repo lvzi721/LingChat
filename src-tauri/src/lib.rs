@@ -282,7 +282,8 @@ pub fn run() {
         .plugin(tauri_plugin_screenshots::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_android_fs::init());
+        .plugin(tauri_plugin_android_fs::init())
+        .plugin(tauri_plugin_voice_wake::init());
 
     // 桌面端额外插件
     #[cfg(desktop)]
@@ -673,7 +674,6 @@ pub fn run() {
         })
         // 注册所有 API 命令
         .plugin(tauri_plugin_shizuku::init())
-        .plugin(tauri_plugin_alarm::init())
         .invoke_handler(tauri::generate_handler![
             utils::log_bridge::get_log_history,
             utils::log_bridge::open_log_window,
@@ -915,6 +915,13 @@ pub fn run() {
             api::asr::asr_stream_audio_chunk,
             api::asr::asr_stop_streaming,
             api::asr::asr_cancel_streaming,
+            api::voice_wake::voice_wake_get_settings,
+            api::voice_wake::voice_wake_save_settings,
+            api::voice_wake::voice_wake_get_status,
+            api::voice_wake::voice_wake_ensure_started,
+            api::voice_wake::voice_wake_set_paused,
+            api::voice_wake::voice_wake_request_permissions,
+            api::voice_wake::voice_wake_open_system_settings,
             exit_app,
         ])
         .run(context)

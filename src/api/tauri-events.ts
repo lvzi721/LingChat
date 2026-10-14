@@ -21,6 +21,7 @@ import { useDialogStore } from "../stores/modules/ui/dialog";
 import { useAsrStore } from "../stores/modules/settings/asr";
 import type { VadEvent } from "../api/services/asr";
 import type { SceneInfo } from "./services/scene";
+import { ensureVoiceWakeListener } from "./services/voice-wake";
 
 function asEvent(
   payload: unknown,
@@ -58,6 +59,11 @@ function isStalePreviewReply(payload: Record<string, unknown>): boolean {
 export function initializeTauriEventListeners() {
   const currentWindow = getCurrentWindow();
   const mainWindow = currentWindow.label === "main" ? currentWindow : null;
+
+  // 原生唤醒服务通过 Tauri mobile Channel 回传；提前注册，避免首次唤醒事件丢失。
+  void ensureVoiceWakeListener().catch((error) => {
+    console.warn("[VoiceWake] 初始化原生事件监听失败:", error);
+  });
 
   listen("ai:reply", (event) => {
     const payload = event.payload as Record<string, unknown>;
