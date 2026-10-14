@@ -1,0 +1,23 @@
+[package]
+name = "tauri-plugin-voice-wake"
+version = "0.1.0"
+description = "Local wake-word foreground service bridge for LingChat on Android"
+authors = ["LingChat"]
+edition = "2021"
+rust-version = "1.77.2"
+license = "MIT"
+links = "tauri-plugin-voice-wake"
+
+[lib]
+name = "tauri_plugin_voice_wake"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+

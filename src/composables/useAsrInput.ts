@@ -16,6 +16,11 @@ import {
   type AsrSource,
   type VadEvent,
 } from "@/api/services/asr";
+import {
+  onVoiceWakeDetected,
+  voiceWakeEnsureStarted,
+  voiceWakeSetPaused,
+} from "@/api/services/voice-wake";
 import { useGameStore } from "@/stores/modules/game";
 import { useAsrStore } from "@/stores/modules/settings/asr";
 import { useUIStore } from "@/stores/modules/ui/ui";
@@ -132,6 +137,23 @@ function resetSession() {
   activeSource.value = null;
 }
 
+/** ASR 会话结束后恢复原生前台服务的本地监听。TTS 播放期间保持暂停。 */
+function resumeWakeService(): void {
+  if (voicePlaying.value) return;
+  void voiceWakeSetPaused(false).catch((error) => {
+    console.warn("[VoiceWake] 恢复本地唤醒服务失败:", error);
+  });
+}
+
+/** ASR 即将占用麦克风时，先暂停原生唤醒服务。 */
+async function pauseWakeServiceForAsr(): Promise<void> {
+  try {
+    await voiceWakeSetPaused(true);
+  } catch (error) {
+    console.warn("[VoiceWake] 暂停本地唤醒服务失败:", error);
+  }
+}
+
 /**
  * 丢弃当前录音：停止本地采集但不触发识别（spec §3.0 —— 路由/抽屉离开时）。
  *
@@ -147,6 +169,7 @@ function discardRecording() {
   void asrCancelStreaming();
   resetSession();
   if (source) void asrStopListening(source);
+  resumeWakeService();
   // 会话被丢弃（路由/抽屉/TTS/触摸模式等门控打断）→ auto 触发标志必须复位，
   // 否则 autoTriggered 卡死 true → 能量监测永不触发（切界面后 auto_listen 失效）
   if (source === "auto") autoTriggered = false;
@@ -265,6 +288,14 @@ export function setMobileMenuOpen(open: boolean): void {
  *  播放结束 → 恢复监听。 */
 export function setVoicePlaying(playing: boolean): void {
   voicePlaying.value = playing;
+  // 原生唤醒服务也要避让 TTS，否则会录到 AI 自己的声音并再次触发唤醒词。
+  if (playing) {
+    void voiceWakeSetPaused(true).catch((error) => {
+      console.warn("[VoiceWake] TTS 播放时暂停唤醒失败:", error);
+    });
+  } else if (phase.value !== "recording" || activeSource.value !== "wake") {
+    resumeWakeService();
+  }
   updateAsrAvailability();
 }
 
@@ -301,7 +332,8 @@ let vadSending = false;
 /** 诊断：已发送的 VAD 块数（用于降频日志） */
 let vadSentFrames = 0;
 function feedVad() {
-  if (!asrStore || phase.value !== "recording" || activeSource.value !== "auto") return;
+  const source = activeSource.value;
+  if (!asrStore || phase.value !== "recording" || (source !== "auto" && source !== "wake")) return;
   if (vadSending || vadPending.length < 512) return;
   const block = vadPending.splice(0, 512);
   vadSending = true;
@@ -338,10 +370,10 @@ function feedStream() {
     });
 }
 
-/** VAD 检测到一轮说话结束（turn_candidate / turn_sealed）→ 结束 auto 会话 */
+/** VAD 检测到一轮说话结束（turn_candidate / turn_sealed）→ 结束 auto / wake 会话 */
 async function onVadTurnEnd() {
   console.log("[ASR] VAD turn 事件, activeSource=", activeSource.value, "phase=", phase.value);
-  if (activeSource.value !== "auto") return;
+  if (activeSource.value !== "auto" && activeSource.value !== "wake") return;
   if (phase.value === "recording") {
     stop();
   }
@@ -421,8 +453,9 @@ function stopEnergyMonitor() {
 
 // ── 会话生命周期 ────────────────────────────────────────────
 async function start(source: AsrSource) {
-  // §1 全 12 项门控；手动模式（button）跳过显示锁（总开关一律生效）
-  if (!canStartAsr(false, source === "button")) {
+  // §1 全 12 项门控；button / wake 都是用户主动触发，跳过短暂显示锁。
+  const manualLike = source === "button" || source === "wake";
+  if (!canStartAsr(false, manualLike)) {
     // 诊断：静默拒绝会让按钮"按下无反应"，暴露拒绝原因
     console.log("[ASR] start 被门控拒绝", {
       source,
@@ -442,6 +475,8 @@ async function start(source: AsrSource) {
   asrVoiceActive.value = true;
   asrStore?.setMicState("recording");
   try {
+    // 普通 ASR 和原生唤醒服务不能同时占用麦克风。
+    await pauseWakeServiceForAsr();
     // 拼接基准：录音开始时的输入框内容（仅按钮源可拼接，auto 统一处理）
     baseText = inputBridge?.getText() ?? "";
     // 流式：先建 WebSocket（互斥由后端 stream 检查 + start_listening 的 active 检查双层保证）。
@@ -472,7 +507,7 @@ async function start(source: AsrSource) {
     processor.onaudioprocess = (e) => {
       const data = e.inputBuffer.getChannelData(0);
       pcmBuffer.push(...data);
-      if (source === "auto") {
+      if (source === "auto" || source === "wake") {
         vadPending.push(...data);
         // 上限保护：串行速率低于产生速率时丢弃最旧（8192 块 ≈ 4 分钟音频，
         // VAD 端点检测只需要最近的音频）
@@ -510,6 +545,7 @@ async function start(source: AsrSource) {
     // 必须清理，否则后端句柄残留 → 下次启动 SessionBusy
     void asrCancelStreaming();
     resetSession();
+    resumeWakeService();
     throw err;
   }
 }
@@ -542,6 +578,7 @@ async function doStreamFinish(source: AsrSource) {
     // 错误链路打通：设置页状态面板 + mic 按钮可感知识别失败（架构 A）
     asrStore?.onError(parseAsrError(err).code || String(err));
     resetSession();
+    resumeWakeService();
     if (source === "auto") {
       autoTriggered = false;
       updateAsrAvailability();
@@ -560,6 +597,7 @@ async function doRecognize(source: AsrSource, captured: number[]) {
     if (wav.byteLength <= 44) {
       // 纯静音（无采样）：直接放弃，不浪费一次识别调用
       resetSession();
+      resumeWakeService();
       if (source === "auto") {
         autoTriggered = false;
         updateAsrAvailability();
@@ -576,6 +614,7 @@ async function doRecognize(source: AsrSource, captured: number[]) {
     // 错误链路打通：设置页状态面板 + mic 按钮可感知识别失败（架构 A）
     asrStore?.onError(parseAsrError(err).code || String(err));
     resetSession();
+    resumeWakeService();
     if (source === "auto") {
       autoTriggered = false;
       updateAsrAvailability();
@@ -603,6 +642,7 @@ function handle(text: string, source: AsrSource) {
     !chatActive.value
   ) {
     resetSession();
+    resumeWakeService();
     if (source === "auto") {
       autoTriggered = false;
       updateAsrAvailability();
@@ -614,6 +654,7 @@ function handle(text: string, source: AsrSource) {
   if (!text.trim()) {
     console.log("[ASR] handle: 空识别结果，复位会话并重启监听");
     resetSession();
+    resumeWakeService();
     if (source === "auto") {
       autoTriggered = false;
       updateAsrAvailability();
@@ -640,6 +681,7 @@ function handle(text: string, source: AsrSource) {
     asrLockedUntil.value = Date.now() + ASR_AUTO_SEND_DELAY_MS;
   }
   resetSession();
+  resumeWakeService();
   // auto 模式本轮结束：复位触发标志 + 通过统一门控重新评估能量监测
   if (source === "auto") {
     autoTriggered = false;
@@ -661,6 +703,33 @@ function ensureInit() {
   // （如旧 active_provider），不 load 会导致识别走到错误的 provider。
   // load 完成后热键/auto_listen 的 watch 会自动响应新值。
   void asrStore.load().catch((e) => console.warn("[ASR] load settings failed:", e));
+
+  // 本地唤醒词触发：原生前台服务已暂停自身识别，这里接管新一轮录音。
+  onVoiceWakeDetected(async (event) => {
+    // 原生服务在 90 秒后会自行恢复监听；更晚送达的旧事件不能再次抢占麦克风。
+    if (Date.now() - event.timestamp > 85_000) {
+      return;
+    }
+    if (phase.value !== "idle" || activeSource.value !== null) {
+      resumeWakeService();
+      return;
+    }
+    if (!canStartAsr(false, true)) {
+      resumeWakeService();
+      return;
+    }
+    try {
+      await start("wake");
+    } catch (error) {
+      console.warn("[VoiceWake] 唤醒后启动 ASR 失败:", error);
+      resumeWakeService();
+    }
+  });
+
+  // 已在设置中启用的用户，应用一启动就恢复锁屏监听服务。
+  void voiceWakeEnsureStarted().catch((error) => {
+    console.warn("[VoiceWake] 自动恢复唤醒服务失败:", error);
+  });
 
   // VAD 事件（经 store 中转，与 tauri-events.ts 的全局监听共用 store 字段）
   watch(

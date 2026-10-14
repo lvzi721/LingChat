@@ -19,6 +19,7 @@ use super::vad::AsrVad;
 pub enum AsrSource {
     Button,
     Auto,
+    Wake,
 }
 
 impl AsrSource {
@@ -26,6 +27,7 @@ impl AsrSource {
         match s {
             "button" => Some(Self::Button),
             "auto" => Some(Self::Auto),
+            "wake" => Some(Self::Wake),
             _ => None,
         }
     }
@@ -101,7 +103,7 @@ impl AsrSession {
     ///
     /// **活跃会话校验（双窗口防御）**：主窗口与桌宠窗口各自喂块，而 Silero
     /// 隐状态只能服务一路流——非活跃窗口的块会污染活跃会话的端点判定。
-    /// 仅接受 `active_source == Auto` 的块（VAD 只服务 auto 模式）；
+    /// 仅接受 `active_source == Auto / Wake` 的块（VAD 服务自动监听与唤醒会话）；
     /// 无活跃会话时静默丢弃（前端 stop 后的残留块、未初始化窗口的块）。
     pub async fn vad_process_chunk(
         &self,
@@ -109,7 +111,7 @@ impl AsrSession {
         pcm: Vec<f32>,
     ) -> Result<(), AsrError> {
         let active = self.active_source.lock().await;
-        if *active != Some(AsrSource::Auto) {
+        if !matches!(*active, Some(AsrSource::Auto) | Some(AsrSource::Wake)) {
             return Ok(()); // 非活跃会话的块：静默丢弃
         }
         drop(active);
