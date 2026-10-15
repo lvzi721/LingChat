@@ -1,0 +1,162 @@
+name: 唤醒词测试版（正式签名）
+
+# 目的：每次推送代码后自动产出「可覆盖安装」的正式签名 APK，并挂到固定
+# Release 上，手机端只需收藏一个下载链接，无需每次新建 Token 或手动点构建。
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/local-wake-word-apk
+      - feature/local-wake-word
+    paths:
+      - "src-tauri/**"
+      - "src/**"
+      - "scripts/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/build-wake-word-release.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    env:
+      CARGO_PROFILE_RELEASE_OPT_LEVEL: "s"
+      CARGO_PROFILE_RELEASE_STRIP: "true"
+      RELEASE_TAG: wakeword-latest
+      ASSET_NAME: LingChat-wakeword.apk
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - uses: pnpm/setup@v1
+        with:
+          runtime: node@26
+          cache: true
+
+      - name: 安装 Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: 设置 rust 缓存
+        uses: swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          workspaces: |
+            src-tauri
+
+      - name: 安装 Linux 依赖 (Ubuntu)
+        run: |
+          sudo apt-get update
+          sudo apt-get install eatmydata
+          sudo eatmydata apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libjavascriptcoregtk-4.1-dev \
+            libsoup-3.0-dev \
+            libpipewire-0.3-dev \
+            libspa-0.2-dev \
+            libgbm-dev \
+            libegl1-mesa-dev \
+            libx11-dev \
+            libxcb1-dev \
+            libxrandr-dev \
+            libxcomposite-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libxtst-dev \
+            libwayland-dev \
+            libdbus-1-dev \
+            zip
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "21"
+
+      - name: 生成图标
+        run: |
+          git lfs pull src-tauri/icons/icon.png
+          pnpm run init
+
+      - name: 准备 Android 项目
+        run: pnpm android:prepare
+
+      - name: 缓存 Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-wakeword-${{ hashFiles('src-tauri/gen/android/**/*.gradle*', 'src-tauri/gen/android/**/gradle-wrapper.properties', 'src-tauri/gen/android/gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-wakeword-
+            ${{ runner.os }}-gradle-
+
+      - name: 配置 Android 签名
+        run: |
+          echo "${{ secrets.ANDROID_KEY_BASE64 }}" | base64 -d > $HOME/upload-keystore.p12
+          cat > src-tauri/gen/android/keystore.properties << EOF
+          storeFile=$HOME/upload-keystore.p12
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          password=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          EOF
+
+      - name: 构建 Android APK
+        run: pnpm android:build
+
+      - name: 重命名 APK
+        run: |
+          APK_DIR="src-tauri/gen/android/app/build/outputs/apk/universal/release"
+          ORIGINAL_APK="$APK_DIR/app-universal-release-unsigned.apk"
+          if [[ ! -f "$ORIGINAL_APK" ]]; then
+            echo "未找到 APK：$ORIGINAL_APK"
+            exit 1
+          fi
+          mv "$ORIGINAL_APK" "$APK_DIR/$ASSET_NAME"
+          ls -lh "$APK_DIR"
+
+      - name: 手动签名 APK
+        run: |
+          APK_PATH="src-tauri/gen/android/app/build/outputs/apk/universal/release/$ASSET_NAME"
+          APKSIGNER=$(find $ANDROID_HOME/build-tools -name apksigner 2>/dev/null | head -1)
+          $APKSIGNER sign \
+            --ks $HOME/upload-keystore.p12 \
+            --ks-key-alias ${{ secrets.ANDROID_KEY_ALIAS }} \
+            --ks-pass pass:${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
+            --key-pass pass:${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
+            "$APK_PATH"
+          $APKSIGNER verify --print-certs "$APK_PATH"
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+
+      - name: 发布到固定 Release
+        run: |
+          APK_PATH="src-tauri/gen/android/app/build/outputs/apk/universal/release/$ASSET_NAME"
+          if gh release view "$RELEASE_TAG" &>/dev/null; then
+            echo "更新已有 Release：$RELEASE_TAG"
+            gh release upload "$RELEASE_TAG" "$APK_PATH" --clobber
+          else
+            echo "创建 Release：$RELEASE_TAG"
+            gh release create "$RELEASE_TAG" "$APK_PATH" \
+              --title "LingChat 唤醒词测试版（自动构建）" \
+              --prerelease \
+              --notes "由 build-wake-word-release.yml 自动构建并覆盖更新。提交：$GITHUB_SHA"
+          fi
+          echo "下载地址：https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/$ASSET_NAME"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
