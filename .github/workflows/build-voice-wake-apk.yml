@@ -1,21 +1,9 @@
 name: 构建语音唤醒测试 APK
 
 on:
+  # 仅手动触发：日常推送由「唤醒词测试版（正式签名）」负责出包，
+  # 避免同一次推送触发两份构建浪费 CI 时间。
   workflow_dispatch:
-  push:
-    branches:
-      - dev
-      - "dev/**"
-      - "feature/**"
-    paths:
-      - "src-tauri/plugins/tauri-plugin-voice-wake/**"
-      - "src-tauri/src/api/voice_wake.rs"
-      - "src-tauri/src/ai_service/asr/**"
-      - "src/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "scripts/**"
-      - ".github/workflows/build-voice-wake-apk.yml"
 
 jobs:
   build:

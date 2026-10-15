@@ -20,6 +20,8 @@ android {
         ndk {
             abiFilters += "arm64-v8a"
         }
+        // 引擎类被 JNI 按字段名反射访问，必须阻止 R8 改名。
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     compileOptions {
