@@ -85,12 +85,22 @@
 
       <div class="mt-4 space-y-1 border-t border-white/10 pt-3 text-sm text-gray-300">
         <div>
-          {{ t("settings.asr.wake.deviceSupport") }}:
-          <span :class="wakeStatus.onDeviceAvailable ? 'text-green-400' : 'text-red-400'">
+          {{ t("settings.asr.wake.model") }}:
+          <span :class="wakeStatus.modelPresent ? 'text-green-400' : 'text-red-400'">
             {{
-              wakeStatus.onDeviceAvailable
-                ? t("settings.asr.wake.supported")
-                : t("settings.asr.wake.unsupported")
+              wakeStatus.modelPresent
+                ? t("settings.asr.wake.modelReady")
+                : t("settings.asr.wake.modelMissing")
+            }}
+          </span>
+        </div>
+        <div>
+          {{ t("settings.asr.wake.engine") }}:
+          <span :class="wakeStatus.engineReady ? 'text-green-400' : 'text-gray-400'">
+            {{
+              wakeStatus.engineReady
+                ? t("settings.asr.wake.engineReady")
+                : t("settings.asr.wake.engineIdle")
             }}
           </span>
         </div>
@@ -129,6 +139,9 @@
         <div v-if="wakeStatus.lastError" class="text-red-400">
           {{ t("settings.asr.wake.lastError") }}:
           {{ wakeErrorText(wakeStatus.lastError) }}
+        </div>
+        <div v-if="wakeStatus.keywordTokens" class="text-xs break-all text-gray-400">
+          {{ t("settings.asr.wake.mappedTokens") }}: {{ wakeStatus.keywordTokens }}
         </div>
       </div>
       <p class="mt-3 text-xs text-gray-400">{{ t("settings.asr.wake.huaweiHint") }}</p>
@@ -379,12 +392,14 @@
   const wakeSettings = ref<VoiceWakeSettings>({ enabled: false, phrase: "灵灵" });
   const wakeStatus = ref<VoiceWakeStatus>({
     supported: false,
+    modelPresent: false,
+    engineReady: false,
     serviceRunning: false,
-    onDeviceAvailable: false,
     permissionGranted: false,
     notificationPermissionGranted: false,
     suspended: false,
     phrase: "灵灵",
+    keywordTokens: null,
     lastDetectionSerial: 0,
     lastDetectionAt: 0,
     lastDetectionTranscript: null,
@@ -419,6 +434,12 @@
   }
 
   function wakeErrorText(code: string): string {
+    if (code.startsWith("unmapped_token:")) {
+      return t("settings.asr.wake.errors.unmappedToken", { token: code.slice(15) });
+    }
+    if (code.startsWith("non_hanzi:")) {
+      return t("settings.asr.wake.errors.nonHanzi", { char: code.slice(10) });
+    }
     const key = `settings.asr.wake.errors.${code}`;
     return te(key) ? t(key) : code;
   }

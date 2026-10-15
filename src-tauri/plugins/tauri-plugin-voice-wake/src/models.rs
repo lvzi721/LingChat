@@ -4,12 +4,14 @@ use serde::{Deserialize, Serialize};
 #[serde(default, rename_all = "camelCase")]
 pub struct VoiceWakeStatus {
     pub supported: bool,
+    pub model_present: bool,
+    pub engine_ready: bool,
     pub service_running: bool,
-    pub on_device_available: bool,
     pub permission_granted: bool,
     pub notification_permission_granted: bool,
     pub suspended: bool,
     pub phrase: String,
+    pub keyword_tokens: Option<String>,
     pub last_detection_serial: u64,
     pub last_detection_at: i64,
     pub last_detection_transcript: Option<String>,
@@ -20,12 +22,14 @@ impl Default for VoiceWakeStatus {
     fn default() -> Self {
         Self {
             supported: false,
+            model_present: false,
+            engine_ready: false,
             service_running: false,
-            on_device_available: false,
             permission_granted: false,
             notification_permission_granted: false,
             suspended: false,
             phrase: String::new(),
+            keyword_tokens: None,
             last_detection_serial: 0,
             last_detection_at: 0,
             last_detection_transcript: None,

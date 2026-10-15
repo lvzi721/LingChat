@@ -9,12 +9,14 @@ export interface VoiceWakeSettings {
 
 export interface VoiceWakeStatus {
   supported: boolean;
+  modelPresent: boolean;
+  engineReady: boolean;
   serviceRunning: boolean;
-  onDeviceAvailable: boolean;
   permissionGranted: boolean;
   notificationPermissionGranted: boolean;
   suspended: boolean;
   phrase: string;
+  keywordTokens?: string | null;
   lastDetectionSerial: number;
   lastDetectionAt: number;
   lastDetectionTranscript?: string | null;

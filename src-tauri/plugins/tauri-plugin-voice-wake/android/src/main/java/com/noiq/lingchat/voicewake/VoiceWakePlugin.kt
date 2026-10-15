@@ -7,7 +7,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import android.speech.SpeechRecognizer
 import android.webkit.WebView
 import androidx.appcompat.app.AppCompatActivity
 import app.tauri.annotation.Command
@@ -113,23 +112,18 @@ class VoiceWakePlugin(private val hostActivity: Activity) : Plugin(hostActivity)
             hostActivity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
 
-    private fun isOnDeviceAvailable(): Boolean =
-        try {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                SpeechRecognizer.isOnDeviceRecognitionAvailable(hostActivity)
-        } catch (_: Throwable) {
-            false
-        }
-
     private fun statusObject(phrase: String = VoiceWakeService.currentPhrase): JSObject {
+        val modelPresent = VoiceWakeService.detectModelPresent(hostActivity)
         val out = JSObject()
-        out.put("supported", isOnDeviceAvailable())
+        out.put("supported", modelPresent)
+        out.put("modelPresent", modelPresent)
+        out.put("engineReady", VoiceWakeService.engineReady)
         out.put("serviceRunning", VoiceWakeService.isRunning)
-        out.put("onDeviceAvailable", isOnDeviceAvailable())
         out.put("permissionGranted", hasRecordingPermission())
         out.put("notificationPermissionGranted", hasNotificationPermission())
         out.put("suspended", VoiceWakeService.isSuspended)
         out.put("phrase", phrase)
+        VoiceWakeService.keywordTokens?.let { out.put("keywordTokens", it) }
         out.put("lastDetectionSerial", VoiceWakeService.lastDetectionSerial)
         out.put("lastDetectionAt", VoiceWakeService.lastDetectionAt)
         VoiceWakeService.lastDetectionTranscript?.let {

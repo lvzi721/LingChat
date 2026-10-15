@@ -195,3 +195,10 @@ AGENTS.md
 # 本地 APK build 路径
 prev-build-*/
 
+# 语音唤醒引擎与模型：体积大（原生库约 30MB、模型约 12MB），
+# 由 scripts/fetch-voice-wake-deps.mjs 在构建前准备，不进仓库。
+src-tauri/plugins/tauri-plugin-voice-wake/.deps-cache/
+src-tauri/plugins/tauri-plugin-voice-wake/android/libs/
+src-tauri/plugins/tauri-plugin-voice-wake/android/src/main/jniLibs/
+src-tauri/plugins/tauri-plugin-voice-wake/android/src/main/assets/kws/
+

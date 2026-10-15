@@ -95,6 +95,9 @@ jobs:
       - name: 准备 Android 项目
         run: pnpm android:prepare
 
+      - name: 准备离线唤醒引擎与模型
+        run: node scripts/fetch-voice-wake-deps.mjs
+
       - name: 缓存 Gradle
         uses: actions/cache@v4
         with:
@@ -159,4 +162,3 @@ jobs:
           echo "下载地址：https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/$ASSET_NAME"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
