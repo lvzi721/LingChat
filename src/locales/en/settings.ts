@@ -1283,6 +1283,7 @@ export default {
       ackMissing: "Not generated - tap Save and apply",
       ackPreview: "Preview acknowledgement",
       lastWake: "Last wake",
+      localAsr: "On-device command ASR",
       requestPermissions: "Request permissions",
       openSettings: "Background settings",
       model: "Wake model",
@@ -1316,6 +1317,9 @@ export default {
         audio_init_failed: "Could not initialise microphone capture",
         empty_phrase: "The wake phrase cannot be empty",
         start_service_failed: "Could not start the voice wake service",
+        asr_empty:
+          "No speech recognised by the on-device model. Wait for the acknowledgement, then speak",
+        asr_model_missing: "The on-device command ASR model is missing",
         unmappedToken: '"{token}" cannot be mapped to the model vocabulary; try another phrase',
         nonHanzi: '"{char}" is not a Chinese character and cannot be matched',
       },

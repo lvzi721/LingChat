@@ -683,7 +683,7 @@ class VoiceWakeService : Service() {
                         tokens = File(dir, ASR_TOKENS).absolutePath,
                         numThreads = 2,
                         provider = "cpu",
-                        modelType = "zipformer2_ctc",
+                        modelType = "zipformer2",
                     ),
                     enableEndpoint = true,
                 ),
@@ -708,7 +708,11 @@ class VoiceWakeService : Service() {
                 while (engine.isReady(st)) engine.decode(st)
                 if (engine.isEndpoint(st)) break
             }
-            engine.getResult(st).text.trim()
+            val text = engine.getResult(st).text.trim()
+            if (text.isEmpty()) {
+                lastError = "asr_empty"
+            }
+            text
         } catch (error: Throwable) {
             lastError = (error.message ?: "asr_failed").take(160)
             null

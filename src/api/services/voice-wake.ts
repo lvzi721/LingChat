@@ -13,6 +13,7 @@ export interface VoiceWakeSettings {
 export interface VoiceWakeStatus {
   supported: boolean;
   modelPresent: boolean;
+  localAsrPresent: boolean;
   engineReady: boolean;
   serviceRunning: boolean;
   permissionGranted: boolean;

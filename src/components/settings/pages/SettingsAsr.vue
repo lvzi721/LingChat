@@ -136,6 +136,16 @@
           </span>
         </div>
         <div>
+          {{ t("settings.asr.wake.localAsr") }}:
+          <span :class="wakeStatus.localAsrPresent ? 'text-green-400' : 'text-red-400'">
+            {{
+              wakeStatus.localAsrPresent
+                ? t("settings.asr.wake.modelReady")
+                : t("settings.asr.wake.modelMissing")
+            }}
+          </span>
+        </div>
+        <div>
           {{ t("settings.asr.wake.microphone") }}:
           <span :class="wakeStatus.permissionGranted ? 'text-green-400' : 'text-red-400'">
             {{
@@ -448,6 +458,7 @@
   const wakeStatus = ref<VoiceWakeStatus>({
     supported: false,
     modelPresent: false,
+    localAsrPresent: false,
     engineReady: false,
     serviceRunning: false,
     permissionGranted: false,
