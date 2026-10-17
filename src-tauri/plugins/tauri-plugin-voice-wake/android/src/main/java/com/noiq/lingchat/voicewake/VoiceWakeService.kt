@@ -10,13 +10,17 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.media.AudioFormat
+import android.media.AudioAttributes
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.media.MediaPlayer
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import app.tauri.plugin.JSObject
 import com.k2fsa.sherpa.onnx.FeatureConfig
 import com.k2fsa.sherpa.onnx.KeywordSpotter
@@ -24,6 +28,8 @@ import com.k2fsa.sherpa.onnx.KeywordSpotterConfig
 import com.k2fsa.sherpa.onnx.OnlineModelConfig
 import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig
 import java.io.File
+import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * 锁屏常驻的本地唤醒词服务。
@@ -41,13 +47,20 @@ class VoiceWakeService : Service() {
         private const val ACTION_PAUSE = "com.noiq.lingchat.voicewake.PAUSE"
         private const val ACTION_RESUME = "com.noiq.lingchat.voicewake.RESUME"
         private const val EXTRA_PHRASE = "phrase"
+        private const val EXTRA_ACK_ENABLED = "ackEnabled"
+        private const val EXTRA_ACK_TEXT = "ackText"
+        private const val EXTRA_ACK_AUDIO = "ackAudioPath"
         private const val PREFS_NAME = "voice_wake"
         private const val PREF_PHRASE = "phrase"
+        private const val PREF_ACK_ENABLED = "ackEnabled"
+        private const val PREF_ACK_TEXT = "ackText"
+        private const val PREF_ACK_AUDIO = "ackAudioPath"
         private const val ASSET_DIR = "kws"
         private const val MODEL_DIR = "kws"
         private const val SAMPLE_RATE = 16000
         private const val CHUNK_SAMPLES = 1600 // 100ms
         private const val FALLBACK_RESUME_MS = 90_000L
+        private const val ACK_TIMEOUT_MS = 2_500L
 
         private const val ENCODER = "encoder-epoch-12-avg-2-chunk-16-left-64.onnx"
         private const val DECODER = "decoder-epoch-12-avg-2-chunk-16-left-64.onnx"
@@ -68,6 +81,18 @@ class VoiceWakeService : Service() {
 
         @Volatile
         var currentPhrase: String = "灵灵"
+            private set
+
+        @Volatile
+        var ackEnabled: Boolean = true
+            private set
+
+        @Volatile
+        var ackText: String = "我在"
+            private set
+
+        @Volatile
+        var ackAudioPath: String? = null
             private set
 
         @Volatile
@@ -106,13 +131,22 @@ class VoiceWakeService : Service() {
                 false
             }
 
-        fun start(context: Context, phrase: String) {
+        fun start(
+            context: Context,
+            phrase: String,
+            ackOn: Boolean,
+            ackLine: String,
+            ackAudio: String?,
+        ) {
             isRunning = true
             isSuspended = false
             try {
                 val intent = Intent(context, VoiceWakeService::class.java)
                     .setAction(ACTION_START)
                     .putExtra(EXTRA_PHRASE, phrase)
+                    .putExtra(EXTRA_ACK_ENABLED, ackOn)
+                    .putExtra(EXTRA_ACK_TEXT, ackLine)
+                    .putExtra(EXTRA_ACK_AUDIO, ackAudio)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     context.startForegroundService(intent)
                 } else {
@@ -151,15 +185,19 @@ class VoiceWakeService : Service() {
     private var recordRef: AudioRecord? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var fallbackResume: Runnable? = null
+    private var tts: TextToSpeech? = null
+    private var ttsReady = false
 
     override fun onCreate() {
         super.onCreate()
         isRunning = true
         modelPresent = detectModelPresent(this)
-        currentPhrase = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            .getString(PREF_PHRASE, currentPhrase)
-            .orEmpty()
-            .ifBlank { "灵灵" }
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        currentPhrase = prefs.getString(PREF_PHRASE, currentPhrase).orEmpty().ifBlank { "灵灵" }
+        ackEnabled = prefs.getBoolean(PREF_ACK_ENABLED, true)
+        ackText = prefs.getString(PREF_ACK_TEXT, ackText).orEmpty().ifBlank { "我在" }
+        ackAudioPath = prefs.getString(PREF_ACK_AUDIO, null)?.takeIf { it.isNotBlank() }
+        if (ackEnabled) ensureAckEngine()
         createNotificationChannel()
         startForegroundCompat(buildNotification("准备中"))
         acquireWakeLock()
@@ -182,13 +220,23 @@ class VoiceWakeService : Service() {
             }
             ACTION_START -> {
                 val phrase = intent.getStringExtra(EXTRA_PHRASE).orEmpty().trim()
+                val ackOn = intent.getBooleanExtra(EXTRA_ACK_ENABLED, ackEnabled)
+                val ackLine = intent.getStringExtra(EXTRA_ACK_TEXT).orEmpty().trim()
+                val ackAudio = intent.getStringExtra(EXTRA_ACK_AUDIO)?.takeIf { it.isNotBlank() }
                 if (phrase.isNotBlank() && phrase != currentPhrase) {
                     currentPhrase = phrase
-                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                        .edit()
-                        .putString(PREF_PHRASE, phrase)
-                        .apply()
                 }
+                ackEnabled = ackOn
+                if (ackLine.isNotBlank()) ackText = ackLine
+                ackAudioPath = ackAudio
+                getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                    .edit()
+                    .putString(PREF_PHRASE, currentPhrase)
+                    .putBoolean(PREF_ACK_ENABLED, ackEnabled)
+                    .putString(PREF_ACK_TEXT, ackText)
+                    .putString(PREF_ACK_AUDIO, ackAudioPath)
+                    .apply()
+                if (ackEnabled) ensureAckEngine()
                 isSuspended = false
                 cancelFallbackResume()
                 startListening()
@@ -220,6 +268,14 @@ class VoiceWakeService : Service() {
             }
         }
         listenThread = null
+        try {
+            tts?.stop()
+            tts?.shutdown()
+        } catch (_: Throwable) {
+            // ignore
+        }
+        tts = null
+        ttsReady = false
         releaseWakeLock()
         super.onDestroy()
     }
@@ -365,16 +421,128 @@ class VoiceWakeService : Service() {
         }
 
         updateNotification("已唤醒，等待 LingChat 接收")
-        VoiceWakeEventBridge.emit(
-            "detected",
-            JSObject().apply {
-                put("phrase", currentPhrase)
-                put("transcript", text)
-                put("timestamp", lastDetectionAt)
-                put("serial", lastDetectionSerial)
-            },
-        )
-        scheduleFallbackResume()
+        // 先播应答再交还麦克风：应答声不会被随后的识别流程录进去。
+        playAck {
+            VoiceWakeEventBridge.emit(
+                "detected",
+                JSObject().apply {
+                    put("phrase", currentPhrase)
+                    put("transcript", text)
+                    put("timestamp", lastDetectionAt)
+                    put("serial", lastDetectionSerial)
+                },
+            )
+            scheduleFallbackResume()
+        }
+    }
+
+    /**
+     * 播放唤醒应答：优先用「保存设置时用角色本地音色预合成的缓存音频」，
+     * 缓存缺失或播放失败时退回系统 TTS，都不可用则直接继续（不阻塞唤醒）。
+     */
+    private fun playAck(then: () -> Unit) {
+        if (!ackEnabled) {
+            then()
+            return
+        }
+        val finished = AtomicBoolean(false)
+        val finish = {
+            if (finished.compareAndSet(false, true)) {
+                mainHandler.post(then)
+            }
+        }
+
+        val path = ackAudioPath
+        if (!path.isNullOrBlank()) {
+            val file = File(path)
+            if (file.isFile && file.length() > 0L) {
+                try {
+                    val player = MediaPlayer()
+                    player.setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ASSISTANT)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .build(),
+                    )
+                    player.setDataSource(path)
+                    player.setOnCompletionListener { p ->
+                        try {
+                            p.release()
+                        } catch (_: Throwable) {
+                            // ignore
+                        }
+                        finish()
+                    }
+                    player.setOnErrorListener { p, _, _ ->
+                        try {
+                            p.release()
+                        } catch (_: Throwable) {
+                            // ignore
+                        }
+                        speakSystemAck(finish)
+                        true
+                    }
+                    player.prepare()
+                    player.start()
+                    // 兜底：个别机型 onCompletion 不回调，避免永久卡住唤醒流程
+                    mainHandler.postDelayed(finish, 8_000L)
+                    return
+                } catch (_: Throwable) {
+                    // 落到系统 TTS
+                }
+            }
+        }
+        speakSystemAck(finish)
+    }
+
+    private fun speakSystemAck(onDone: () -> Unit) {
+        val engine = tts
+        if (engine == null || !ttsReady) {
+            onDone()
+            return
+        }
+        val spoken = AtomicBoolean(false)
+        val once = {
+            if (spoken.compareAndSet(false, true)) mainHandler.post(onDone)
+        }
+        try {
+            engine.setOnUtteranceProgressListener(
+                object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {}
+
+                    override fun onDone(utteranceId: String?) {
+                        once()
+                    }
+
+                    @Deprecated("Deprecated in Java")
+                    override fun onError(utteranceId: String?) {
+                        once()
+                    }
+                },
+            )
+            val result = engine.speak(ackText, TextToSpeech.QUEUE_FLUSH, null, "wake-ack")
+            if (result != TextToSpeech.SUCCESS) {
+                once()
+                return
+            }
+            mainHandler.postDelayed({ once() }, ACK_TIMEOUT_MS)
+        } catch (_: Throwable) {
+            once()
+        }
+    }
+
+    private fun ensureAckEngine() {
+        if (tts != null) return
+        tts = TextToSpeech(applicationContext) { status ->
+            ttsReady = status == TextToSpeech.SUCCESS
+            if (ttsReady) {
+                try {
+                    tts?.language = Locale.SIMPLIFIED_CHINESE
+                } catch (_: Throwable) {
+                    // 语言设置失败时用引擎默认语言
+                }
+            }
+        }
     }
 
     private fun notifyInMain(message: String) {

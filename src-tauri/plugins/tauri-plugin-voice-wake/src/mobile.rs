@@ -22,11 +22,20 @@ impl<R: Runtime> VoiceWake<R> {
         })
     }
 
-    pub fn start(&self, phrase: &str) -> Result<VoiceWakeStatus> {
+    pub fn start(
+        &self,
+        phrase: &str,
+        ack_enabled: bool,
+        ack_text: &str,
+        ack_audio_path: Option<&str>,
+    ) -> Result<VoiceWakeStatus> {
         self.invoke(
             "start",
             StartRequest {
                 phrase: phrase.to_string(),
+                ack_enabled,
+                ack_text: ack_text.to_string(),
+                ack_audio_path: ack_audio_path.map(str::to_string),
             },
         )
     }

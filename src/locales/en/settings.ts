@@ -1271,6 +1271,13 @@ export default {
       phraseHint:
         "Save and apply after editing. The phrase is matched on-device by a bundled offline model; Chinese text is converted to pinyin and nothing is uploaded.",
       save: "Save and apply",
+      ackEnable: "Speak an acknowledgement after waking",
+      ackHint:
+        "Pre-renders the acknowledgement with the character's local TTS voice and plays it instantly on wake so you know LingChat heard you.",
+      ackPlaceholder: "For example: I'm here",
+      ackPrepared: "Acknowledgement rendered with the character's local voice and cached.",
+      ackFallback:
+        "The character's local voice is unavailable; the system voice will be used: {error}",
       requestPermissions: "Request permissions",
       openSettings: "Background settings",
       model: "Wake model",

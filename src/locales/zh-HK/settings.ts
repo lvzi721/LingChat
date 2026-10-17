@@ -1226,6 +1226,11 @@ export default {
       phraseHint:
         "修改後撳保存並套用。喚醒詞喺手機本地用內置離線模型判斷，漢字會自動轉拼音，唔會上傳雲端。",
       save: "保存並套用",
+      ackEnable: "喚醒後先應答一句",
+      ackHint: "用角色現時嘅本地 TTS 音色預先合成應答，喚醒時即刻播放，確認已經收到喚醒詞。",
+      ackPlaceholder: "例如：我喺度",
+      ackPrepared: "應答語音已用角色本地音色生成並快取。",
+      ackFallback: "角色本地語音用唔到，會改用系統語音：{error}",
       requestPermissions: "要求權限",
       openSettings: "系統後台設定",
       model: "喚醒模型",

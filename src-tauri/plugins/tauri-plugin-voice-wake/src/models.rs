@@ -42,6 +42,10 @@ impl Default for VoiceWakeStatus {
 #[serde(rename_all = "camelCase")]
 pub struct StartRequest {
     pub phrase: String,
+    pub ack_enabled: bool,
+    pub ack_text: String,
+    #[serde(default)]
+    pub ack_audio_path: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]

@@ -1,7 +1,12 @@
 use crate::error::{Error, Result};
 use crate::models::VoiceWakeStatus;
 
-pub fn start(_phrase: &str) -> Result<VoiceWakeStatus> {
+pub fn start(
+    _phrase: &str,
+    _ack_enabled: bool,
+    _ack_text: &str,
+    _ack_audio_path: Option<&str>,
+) -> Result<VoiceWakeStatus> {
     Err(Error::UnsupportedPlatform)
 }
 

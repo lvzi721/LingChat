@@ -5,6 +5,9 @@ import { isAndroid } from "@/utils/platform";
 export interface VoiceWakeSettings {
   enabled: boolean;
   phrase: string;
+  ackEnabled: boolean;
+  ackText: string;
+  ackAudioPath?: string | null;
 }
 
 export interface VoiceWakeStatus {
@@ -33,6 +36,9 @@ export interface VoiceWakeDetectedEvent {
 const DEFAULT_SETTINGS: VoiceWakeSettings = {
   enabled: false,
   phrase: "灵灵",
+  ackEnabled: true,
+  ackText: "我在",
+  ackAudioPath: null,
 };
 
 let channel: Channel<VoiceWakeDetectedEvent> | null = null;
@@ -104,6 +110,10 @@ export const voiceWakeGetSettings = () => invoke<VoiceWakeSettings>("voice_wake_
 
 export const voiceWakeSaveSettings = (settings: VoiceWakeSettings) =>
   invoke<VoiceWakeStatus>("voice_wake_save_settings", { settings });
+
+/** 用当前角色的本地 TTS 音色预合成应答音频，返回缓存路径（失败时抛错）。 */
+export const voiceWakePrepareAck = (text: string) =>
+  invoke<string | null>("voice_wake_prepare_ack", { text });
 
 export const voiceWakeGetStatus = () => invoke<VoiceWakeStatus>("voice_wake_get_status");
 

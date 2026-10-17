@@ -920,6 +920,7 @@ pub fn run() {
             api::voice_wake::voice_wake_get_status,
             api::voice_wake::voice_wake_ensure_started,
             api::voice_wake::voice_wake_set_paused,
+            api::voice_wake::voice_wake_prepare_ack,
             api::voice_wake::voice_wake_request_permissions,
             api::voice_wake::voice_wake_open_system_settings,
             exit_app,

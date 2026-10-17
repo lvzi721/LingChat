@@ -54,6 +54,28 @@
         <p class="mt-1.5 text-sm text-gray-300">{{ t("settings.asr.wake.phraseHint") }}</p>
       </div>
 
+      <div class="mt-4 border-t border-white/10 pt-4">
+        <Toggle
+          :checked="wakeSettings.ackEnabled"
+          @change="(v: boolean) => (wakeSettings.ackEnabled = v)"
+        >
+          <span class="font-medium">{{ t("settings.asr.wake.ackEnable") }}</span>
+          <span class="mt-0.5 block text-sm text-gray-300">{{
+            t("settings.asr.wake.ackHint")
+          }}</span>
+        </Toggle>
+        <input
+          v-if="wakeSettings.ackEnabled"
+          v-model.trim="wakeSettings.ackText"
+          maxlength="40"
+          :placeholder="t('settings.asr.wake.ackPlaceholder')"
+          class="shadow-glass focus:border-brand focus:ring-brand/20 mt-3 w-full rounded-lg border
+            border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white backdrop-blur-xl
+            backdrop-saturate-150 transition-all duration-200 focus:ring-2 focus:outline-none"
+        />
+        <p v-if="ackNotice" class="mt-2 text-xs text-gray-400">{{ ackNotice }}</p>
+      </div>
+
       <div class="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
@@ -375,6 +397,7 @@
     voiceWakeGetSettings,
     voiceWakeGetStatus,
     voiceWakeOpenSystemSettings,
+    voiceWakePrepareAck,
     voiceWakeRequestPermissions,
     voiceWakeSaveSettings,
     type VoiceWakeSettings,
@@ -389,7 +412,14 @@
   // DataCloneError，导致 setup 崩溃整页空白；JSON 序列化无此问题）
   const localSettings = ref<AsrSettings>(JSON.parse(JSON.stringify(asrStore.settings)));
   const lastTestResult = ref<{ ok: boolean; text: string } | null>(null);
-  const wakeSettings = ref<VoiceWakeSettings>({ enabled: false, phrase: "灵灵" });
+  const wakeSettings = ref<VoiceWakeSettings>({
+    enabled: false,
+    phrase: "灵灵",
+    ackEnabled: true,
+    ackText: "我在",
+    ackAudioPath: null,
+  });
+  const ackNotice = ref("");
   const wakeStatus = ref<VoiceWakeStatus>({
     supported: false,
     modelPresent: false,
@@ -458,10 +488,26 @@
     if (wakeBusy.value) return;
     wakeBusy.value = true;
     wakeMessage.value = "";
+    ackNotice.value = "";
     try {
+      let ackAudioPath: string | null = null;
+      if (wakeSettings.value.ackEnabled) {
+        try {
+          ackAudioPath = await voiceWakePrepareAck(wakeSettings.value.ackText);
+          if (ackAudioPath) {
+            ackNotice.value = t("settings.asr.wake.ackPrepared");
+          }
+        } catch (error) {
+          ackAudioPath = null;
+          ackNotice.value = t("settings.asr.wake.ackFallback", { error: String(error) });
+        }
+      }
       const status = await voiceWakeSaveSettings({
         enabled: wakeSettings.value.enabled,
         phrase: wakeSettings.value.phrase,
+        ackEnabled: wakeSettings.value.ackEnabled,
+        ackText: wakeSettings.value.ackText,
+        ackAudioPath,
       });
       wakeStatus.value = status;
       wakeSettings.value.phrase = status.phrase;

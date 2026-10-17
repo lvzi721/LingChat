@@ -1273,6 +1273,11 @@ export default {
       phraseHint:
         "修改后点击保存并应用。唤醒词在手机本地用内置离线模型识别，汉字会自动转成拼音，不上传云端。",
       save: "保存并应用",
+      ackEnable: "唤醒后先应答一句",
+      ackHint: "用角色当前的本地 TTS 音色预生成应答音频，唤醒时立即播放，用来确认已经收到唤醒词。",
+      ackPlaceholder: "例如：我在",
+      ackPrepared: "应答语音已用角色本地音色生成并缓存。",
+      ackFallback: "角色本地语音不可用，将改用系统语音：{error}",
       requestPermissions: "请求权限",
       openSettings: "系统后台设置",
       model: "唤醒模型",

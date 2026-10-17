@@ -1,19 +1,31 @@
 //! 锁屏本地唤醒词设置与 Android 前台服务桥接。
 
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
+use sha2::{Digest, Sha256};
+use tauri::{AppHandle, Manager};
 use tauri_plugin_store::StoreExt;
 
+use crate::ai_service::tts::local::{LocalTtsState, SynthesizeRequest};
+use crate::db::managers::role_repo::RoleRepo;
 use tauri_plugin_voice_wake::VoiceWakeStatus;
 
 const STORE_KEY: &str = "VOICE_WAKE_SETTINGS";
 const DEFAULT_PHRASE: &str = "灵灵";
+const DEFAULT_ACK_TEXT: &str = "我在";
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct VoiceWakeSettings {
     pub enabled: bool,
     pub phrase: String,
+    /// 唤醒后是否先播一句应答，让用户确认已经收到唤醒词。
+    #[serde(default = "default_ack_enabled")]
+    pub ack_enabled: bool,
+    #[serde(default = "default_ack_text")]
+    pub ack_text: String,
+    /// 由本地 TTS 预合成的应答音频路径（缓存，可为空表示尚未生成）。
+    #[serde(default)]
+    pub ack_audio_path: Option<String>,
 }
 
 impl Default for VoiceWakeSettings {
@@ -21,8 +33,19 @@ impl Default for VoiceWakeSettings {
         Self {
             enabled: false,
             phrase: DEFAULT_PHRASE.to_string(),
+            ack_enabled: true,
+            ack_text: DEFAULT_ACK_TEXT.to_string(),
+            ack_audio_path: None,
         }
     }
+}
+
+fn default_ack_enabled() -> bool {
+    true
+}
+
+fn default_ack_text() -> String {
+    DEFAULT_ACK_TEXT.to_string()
 }
 
 fn load_settings(app: &AppHandle) -> Result<VoiceWakeSettings, String> {
@@ -61,6 +84,12 @@ fn normalize_phrase(value: &str) -> String {
 
 fn normalize_settings(mut settings: VoiceWakeSettings) -> VoiceWakeSettings {
     settings.phrase = normalize_phrase(&settings.phrase);
+    let ack = settings.ack_text.trim();
+    settings.ack_text = if ack.is_empty() {
+        DEFAULT_ACK_TEXT.to_string()
+    } else {
+        ack.chars().take(40).collect()
+    };
     settings
 }
 
@@ -84,7 +113,14 @@ pub async fn voice_wake_save_settings(
     save_settings(&app, &settings)?;
 
     if settings.enabled {
-        tauri_plugin_voice_wake::start(&app, &settings.phrase).map_err(|e| e.to_string())
+        tauri_plugin_voice_wake::start(
+            &app,
+            &settings.phrase,
+            settings.ack_enabled,
+            &settings.ack_text,
+            settings.ack_audio_path.as_deref(),
+        )
+        .map_err(|e| e.to_string())
     } else {
         let _ = tauri_plugin_voice_wake::stop(&app);
         Ok(platform_status(&app, &settings))
@@ -105,7 +141,107 @@ pub async fn voice_wake_ensure_started(app: AppHandle) -> Result<VoiceWakeStatus
     if !settings.enabled {
         return Ok(platform_status(&app, &settings));
     }
-    tauri_plugin_voice_wake::start(&app, &settings.phrase).map_err(|e| e.to_string())
+    tauri_plugin_voice_wake::start(
+        &app,
+        &settings.phrase,
+        settings.ack_enabled,
+        &settings.ack_text,
+        settings.ack_audio_path.as_deref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// 用「当前角色的本地 TTS 音色」预合成唤醒应答，返回缓存文件路径。
+///
+/// 合成只发生在保存设置时：唤醒瞬间直接播放缓存音频，避免实时合成带来的
+/// 1~3 秒延迟。缓存按 文本 + 音色 + 角色 + 合成参数 取哈希，重复保存不会重合成。
+#[tauri::command]
+pub async fn voice_wake_prepare_ack(
+    text: String,
+    app: AppHandle,
+) -> Result<Option<String>, String> {
+    let text = text.trim().to_string();
+    if text.is_empty() {
+        return Ok(None);
+    }
+
+    let state = app.state::<crate::AppState>();
+    let role_id = {
+        let svc = state.ai_service.lock().await;
+        let gs = svc.game_status.lock().await;
+        gs.current_role_id
+    };
+    let Some(role_id) = role_id else {
+        return Err("尚未选择角色，无法用角色音色生成应答".into());
+    };
+
+    let role_settings =
+        RoleRepo::get_role_settings_by_id(&state.db, &crate::api::data_dir(), role_id)
+            .await
+            .map_err(|e| format!("读取角色配置失败: {e}"))?
+            .ok_or_else(|| "角色配置不存在".to_string())?;
+    let voice = role_settings.voice_models.clone().unwrap_or_default();
+    let voice_id = voice.sbv2_local_voice_id.clone().unwrap_or_default();
+    if voice_id.trim().is_empty() {
+        return Err("当前角色未配置本地音色，请先在角色语音设置里选择本地语音".into());
+    }
+
+    let style_id = voice.sbv2_local_style_id.unwrap_or(0);
+    let speaker_id = voice.sbv2_local_speaker_id.unwrap_or(0);
+    let sdp_ratio = voice.sbv2_local_sdp_ratio.unwrap_or(0.2);
+    let length_scale = voice.sbv2_local_length_scale.unwrap_or(1.0);
+
+    let mut hasher = Sha256::new();
+    hasher.update(text.as_bytes());
+    hasher.update(b"|");
+    hasher.update(voice_id.as_bytes());
+    hasher.update(b"|");
+    hasher.update(role_id.to_string().as_bytes());
+    hasher.update(b"|");
+    hasher.update(format!("{style_id}|{speaker_id}|{sdp_ratio}|{length_scale}").as_bytes());
+    let digest = format!("{:x}", hasher.finalize());
+
+    let dir = crate::api::data_dir().join("voice").join("wake_ack");
+    tokio::fs::create_dir_all(&dir)
+        .await
+        .map_err(|e| format!("创建应答缓存目录失败: {e}"))?;
+    let path = dir.join(format!("{}.wav", &digest[..16]));
+    if path.is_file() {
+        return Ok(Some(path.to_string_lossy().to_string()));
+    }
+
+    let local = app.state::<LocalTtsState>();
+    if !local.engine.is_ready().await {
+        if !local.paths.asset_present("deberta") {
+            return Err("本地 TTS 未就绪（缺少 DeBERTa 模型）".into());
+        }
+        local
+            .engine
+            .init(&local.paths)
+            .await
+            .map_err(|e| format!("本地 TTS 初始化失败: {e}"))?;
+    }
+    local
+        .engine
+        .load_voice(&local.paths, &voice_id)
+        .await
+        .map_err(|e| format!("加载本地音色失败: {e}"))?;
+    let bytes = local
+        .engine
+        .synthesize(SynthesizeRequest {
+            voice_id: voice_id.clone(),
+            text: text.clone(),
+            style_id,
+            speaker_id,
+            sdp_ratio,
+            length_scale,
+        })
+        .await
+        .map_err(|e| format!("应答语音合成失败: {e}"))?;
+    tokio::fs::write(&path, bytes)
+        .await
+        .map_err(|e| format!("写入应答缓存失败: {e}"))?;
+    Ok(Some(path.to_string_lossy().to_string()))
 }
 
 #[tauri::command]

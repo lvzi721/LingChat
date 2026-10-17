@@ -15,18 +15,24 @@ pub use models::VoiceWakeStatus;
 pub use mobile::VoiceWake;
 
 /// 启动 Android 前台语音唤醒服务。
-pub fn start<R: Runtime>(app: &tauri::AppHandle<R>, phrase: &str) -> Result<VoiceWakeStatus> {
+pub fn start<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    phrase: &str,
+    ack_enabled: bool,
+    ack_text: &str,
+    ack_audio_path: Option<&str>,
+) -> Result<VoiceWakeStatus> {
     #[cfg(target_os = "android")]
     {
         let state = app
             .try_state::<VoiceWake<R>>()
             .ok_or(Error::NotInitialized)?;
-        state.start(phrase)
+        state.start(phrase, ack_enabled, ack_text, ack_audio_path)
     }
     #[cfg(not(target_os = "android"))]
     {
         let _ = app;
-        desktop::start(phrase)
+        desktop::start(phrase, ack_enabled, ack_text, ack_audio_path)
     }
 }
 

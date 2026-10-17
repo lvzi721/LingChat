@@ -31,7 +31,16 @@ class VoiceWakePlugin(private val hostActivity: Activity) : Plugin(hostActivity)
 
     @Command
     fun start(invoke: Invoke) {
-        val phrase = invoke.getArgs().optString("phrase", "").trim()
+        val args = invoke.getArgs()
+        val phrase = args.optString("phrase", "").trim()
+        val ackEnabled = args.optBoolean("ackEnabled", true)
+        val ackText = args.optString("ackText", "我在").trim().ifBlank { "我在" }
+        val ackAudioPath =
+            if (args.has("ackAudioPath") && !args.isNull("ackAudioPath")) {
+                args.optString("ackAudioPath", "").trim().ifEmpty { null }
+            } else {
+                null
+            }
         if (phrase.isBlank()) {
             invoke.reject("唤醒词不能为空", "wake_phrase_empty")
             return
@@ -42,7 +51,7 @@ class VoiceWakePlugin(private val hostActivity: Activity) : Plugin(hostActivity)
             return
         }
         try {
-            VoiceWakeService.start(hostActivity, phrase)
+            VoiceWakeService.start(hostActivity, phrase, ackEnabled, ackText, ackAudioPath)
             invoke.resolve(statusObject(phrase))
         } catch (error: Throwable) {
             invoke.reject(error.message ?: "启动语音唤醒服务失败", "start_service_failed")
