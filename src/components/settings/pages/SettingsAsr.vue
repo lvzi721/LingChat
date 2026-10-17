@@ -177,6 +177,10 @@
             }}
           </span>
         </div>
+        <div v-if="wakeStatus.lastDetectionAt">
+          {{ t("settings.asr.wake.lastWake") }}:
+          <span class="text-green-400">{{ lastWakeText }}</span>
+        </div>
         <div v-if="wakeStatus.lastError" class="text-red-400">
           {{ t("settings.asr.wake.lastError") }}:
           {{ wakeErrorText(wakeStatus.lastError) }}
@@ -459,6 +463,11 @@
   const wakeBusy = ref(false);
   const wakeMessage = ref("");
   const wakeMessageOk = ref(false);
+  const lastWakeText = computed(() =>
+    wakeStatus.value.lastDetectionAt
+      ? new Date(wakeStatus.value.lastDetectionAt).toLocaleTimeString()
+      : ""
+  );
 
   let saveTimer: number | null = null;
   /** 初始化完成标记：onMounted 赋值后置 true，跳过一次初始化触发的保存 */

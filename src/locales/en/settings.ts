@@ -1282,6 +1282,7 @@ export default {
       ackReady: "Cached",
       ackMissing: "Not generated - tap Save and apply",
       ackPreview: "Preview acknowledgement",
+      lastWake: "Last wake",
       requestPermissions: "Request permissions",
       openSettings: "Background settings",
       model: "Wake model",

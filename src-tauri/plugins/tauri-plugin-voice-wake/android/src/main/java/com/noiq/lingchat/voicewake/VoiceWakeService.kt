@@ -408,21 +408,23 @@ class VoiceWakeService : Service() {
     }
 
     private fun onKeywordDetected(text: String) {
-        isSuspended = true
-        cancelFallbackResume()
         lastDetectionSerial += 1
         lastDetectionAt = System.currentTimeMillis()
         lastDetectionTranscript = text
 
-        if (!VoiceWakeEventBridge.hasListener("detected")) {
-            updateNotification("检测到“$text”，但 LingChat 界面未就绪")
-            scheduleFallbackResume()
-            return
-        }
-
-        updateNotification("已唤醒，等待 LingChat 接收")
-        // 先播应答再交还麦克风：应答声不会被随后的识别流程录进去。
+        // 应答与前端状态无关：锁屏时 Activity 可能已被回收（hasListener=false），
+        // 但用户仍然需要听到"我在"这一声确认。
         playAck {
+            if (!VoiceWakeEventBridge.hasListener("detected")) {
+                // 前端不可用：不占用麦克风，立即恢复监听，避免服务卡在暂停态。
+                isSuspended = false
+                updateNotification("检测到“$text”，界面未就绪，继续监听")
+                startListening()
+                return@playAck
+            }
+            isSuspended = true
+            cancelFallbackResume()
+            updateNotification("已唤醒，等待 LingChat 接收")
             VoiceWakeEventBridge.emit(
                 "detected",
                 JSObject().apply {

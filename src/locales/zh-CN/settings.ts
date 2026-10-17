@@ -1282,6 +1282,7 @@ export default {
       ackReady: "已缓存",
       ackMissing: "未生成，请点“保存并应用”",
       ackPreview: "试听应答",
+      lastWake: "最近唤醒",
       requestPermissions: "请求权限",
       openSettings: "系统后台设置",
       model: "唤醒模型",
