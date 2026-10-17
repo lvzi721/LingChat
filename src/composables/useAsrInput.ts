@@ -20,6 +20,7 @@ import {
   onVoiceWakeDetected,
   onVoiceWakeRecognized,
   voiceWakeEnsureStarted,
+  voiceWakeGetStatus,
   voiceWakeRecognizeOnce,
   voiceWakeSetPaused,
   voiceWakeTakePendingText,
@@ -93,6 +94,8 @@ const ENERGY_WARMUP_MS = 100;
  *  播放期间 ASR 整体禁用（canStartAsr 门控 + handle drop），播完才恢复。
  *  ref 化：canStartMic 等 computed 依赖它，播完 setVoicePlaying(false) 自动解锁。 */
 const voicePlaying = ref(false);
+/** 内置本地识别模型是否可用（决定麦克风按钮走原生一次识别还是自动监听开关）。 */
+const nativeAsrReady = ref(false);
 /** 输入框桥：GameDialog 注册，供 partial 实时写入 / 拼接基准读取 */
 let inputBridge: { getText: () => string; setText: (v: string) => void } | null = null;
 /** 录音开始时的输入框内容快照（拼接语义的基准：partial 只追加在这之后） */
@@ -768,6 +771,13 @@ function ensureInit() {
   // load 完成后热键/auto_listen 的 watch 会自动响应新值。
   void asrStore.load().catch((e) => console.warn("[ASR] load settings failed:", e));
 
+  // 读取一次内置模型状态：可用时手动麦克风走原生识别，不再被自动监听分支截走。
+  void voiceWakeGetStatus()
+    .then((status) => {
+      nativeAsrReady.value = status.localAsrPresent;
+    })
+    .catch(() => {});
+
   // 本地唤醒词触发：原生前台服务已暂停自身识别，这里接管新一轮录音。
   onVoiceWakeDetected(async (event) => {
     // 原生服务在 90 秒后会自行恢复监听；更晚送达的旧事件不能再次抢占麦克风。
@@ -916,6 +926,7 @@ export function useAsrInput() {
     cancel: () => asrCancel(),
     canStartAsr,
     autoListenActive,
+    nativeAsrReady,
     toggleAutoListenFunction,
   };
 }

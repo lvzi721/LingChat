@@ -451,7 +451,9 @@ class VoiceWakeService : Service() {
         // 但用户仍然需要听到"我在"这一声确认。
         playAck {
             Thread({
-                val spoken = captureCommand()
+                // 与「测试本地识别」共用同一实现，避免两条路径行为不一致。
+                val (spoken, error) = LocalAsr.recognize(applicationContext, MAX_COMMAND_MS)
+                if (!error.isNullOrBlank()) lastError = error
                 mainHandler.post { finishCommand(text, spoken) }
             }, "voice-wake-asr").start()
         }

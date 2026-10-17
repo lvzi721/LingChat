@@ -757,7 +757,11 @@
     try {
       // auto_listen 模式开 + 总开关开：mic 按钮 = 切换功能开关（暂停/恢复监听），
       // 不改模式设置；总开关关 → 走手动录音分支
-      if (autoListenOn.value && asrStore.settings.voice_input_enabled) {
+      if (
+        !asrInput.nativeAsrReady.value &&
+        autoListenOn.value &&
+        asrStore.settings.voice_input_enabled
+      ) {
         asrInput.toggleAutoListenFunction();
         return;
       }
