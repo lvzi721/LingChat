@@ -581,6 +581,17 @@
         ackNotice.value = t("settings.asr.wake.ackMissing");
         return;
       }
+      // 试听即生效：把生成的音频路径写回设置并重启服务，
+      // 避免"试听正常但唤醒时仍无应答"（服务里还是旧路径）。
+      wakeSettings.value.ackAudioPath = path;
+      const status = await voiceWakeSaveSettings({
+        enabled: wakeSettings.value.enabled,
+        phrase: wakeSettings.value.phrase,
+        ackEnabled: wakeSettings.value.ackEnabled,
+        ackText: wakeSettings.value.ackText,
+        ackAudioPath: path,
+      });
+      wakeStatus.value = status;
       await voiceWakeSetPaused(true).catch(() => {});
       paused = true;
       await new Promise<void>((resolve, reject) => {

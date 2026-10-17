@@ -158,10 +158,26 @@ pub async fn voice_wake_get_status(app: AppHandle) -> Result<VoiceWakeStatus, St
 
 #[tauri::command]
 pub async fn voice_wake_ensure_started(app: AppHandle) -> Result<VoiceWakeStatus, String> {
-    let settings = load_settings(&app)?;
+    let mut settings = load_settings(&app)?;
     if !settings.enabled {
         return Ok(platform_status(&app, &settings));
     }
+
+    // 冷启动兜底：历史设置里没有应答音频（例如功能上线前就已开启唤醒），
+    // 这里补生成一次并落盘，避免服务启动后唤醒时静默。
+    if settings.ack_enabled {
+        let missing = match settings.ack_audio_path.as_deref() {
+            Some(path) => !std::path::Path::new(path).is_file(),
+            None => true,
+        };
+        if missing {
+            if let Ok(Some(path)) = prepare_ack_audio(&app, &settings.ack_text).await {
+                settings.ack_audio_path = Some(path);
+                let _ = save_settings(&app, &settings);
+            }
+        }
+    }
+
     tauri_plugin_voice_wake::start(
         &app,
         &settings.phrase,
