@@ -81,6 +81,18 @@ class VoiceWakePlugin(private val hostActivity: Activity) : Plugin(hostActivity)
     fun setPaused(invoke: Invoke) {
         val paused = invoke.getArgs().optBoolean("paused", false)
         VoiceWakeService.setPaused(hostActivity, paused)
+        // 暂停是为了把麦克风让给前端录音：等原生侧真正释放，避免 getUserMedia 抢不到设备。
+        if (paused) {
+            val deadline = System.currentTimeMillis() + 800
+            while (VoiceWakeService.micBusy && System.currentTimeMillis() < deadline) {
+                try {
+                    Thread.sleep(20)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    break
+                }
+            }
+        }
         invoke.resolve(statusObject())
     }
 

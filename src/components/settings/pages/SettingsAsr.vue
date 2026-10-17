@@ -21,7 +21,10 @@
 
     <!-- Android 锁屏本地唤醒词：前台服务持续监听设备端唤醒词 -->
     <section v-if="isAndroid()" class="mb-6 rounded-lg border border-white/10 bg-white/5 p-4">
-      <div class="text-brand mb-3 font-medium">{{ t("settings.asr.wake.title") }}</div>
+      <div class="text-brand mb-3 font-medium">
+        {{ t("settings.asr.wake.title") }}
+        <span class="ml-2 text-xs font-normal text-gray-400">{{ WAKE_BUILD_TAG }}</span>
+      </div>
       <Toggle :checked="wakeSettings.enabled" :disabled="wakeBusy" @change="setWakeEnabled">
         <span class="font-medium">{{ t("settings.asr.wake.enable") }}</span>
         <span class="mt-0.5 block text-sm text-gray-300">
@@ -447,6 +450,8 @@
   // DataCloneError，导致 setup 崩溃整页空白；JSON 序列化无此问题）
   const localSettings = ref<AsrSettings>(JSON.parse(JSON.stringify(asrStore.settings)));
   const lastTestResult = ref<{ ok: boolean; text: string } | null>(null);
+  // 构建标识：用来确认手机上跑的是哪一版（排查"装了但没生效"）
+  const WAKE_BUILD_TAG = "2026-10-18-A1";
   const wakeSettings = ref<VoiceWakeSettings>({
     enabled: false,
     phrase: "灵灵",

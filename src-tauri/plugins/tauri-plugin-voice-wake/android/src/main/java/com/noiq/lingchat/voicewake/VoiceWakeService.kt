@@ -132,6 +132,11 @@ class VoiceWakeService : Service() {
         var lastDetectionTranscript: String? = null
             private set
 
+        /** 是否正持有麦克风；暂停唤醒后要等它释放再交还给前端录音。 */
+        @Volatile
+        var micBusy: Boolean = false
+            private set
+
         /** 前端不可用时暂存的一次识别结果，等界面回来再取走。 */
         @Volatile
         var pendingText: String? = null
@@ -390,6 +395,7 @@ class VoiceWakeService : Service() {
             }
             recordRef = record
             record.startRecording()
+            micBusy = true
             notifyInMain("正在监听“$currentPhrase”")
 
             val buffer = ShortArray(CHUNK_SAMPLES)
@@ -424,6 +430,7 @@ class VoiceWakeService : Service() {
                 // ignore
             }
             recordRef = null
+            micBusy = false
             engineReady = false
             try {
                 spotter?.release()
@@ -696,6 +703,7 @@ class VoiceWakeService : Service() {
             record = rec
             recordRef = rec
             rec.startRecording()
+            micBusy = true
             notifyInMain("正在听你说")
 
             val buffer = ShortArray(CHUNK_SAMPLES)
@@ -730,6 +738,7 @@ class VoiceWakeService : Service() {
                 // ignore
             }
             recordRef = null
+            micBusy = false
             try {
                 stream?.release()
             } catch (_: Throwable) {
