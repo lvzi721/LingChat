@@ -109,7 +109,28 @@ pub async fn voice_wake_save_settings(
     settings: VoiceWakeSettings,
     app: AppHandle,
 ) -> Result<VoiceWakeStatus, String> {
-    let settings = normalize_settings(settings);
+    let mut settings = normalize_settings(settings);
+
+    // 应答音频在服务端兜底生成：即使前端没调用 prepare，或缓存文件被清理，
+    // 保存时也会补上，避免唤醒时静默无声（华为等机型通常没有系统 TTS 兜底）。
+    if settings.ack_enabled {
+        let missing = match settings.ack_audio_path.as_deref() {
+            Some(path) => !std::path::Path::new(path).is_file(),
+            None => true,
+        };
+        if missing {
+            match prepare_ack_audio(&app, &settings.ack_text).await {
+                Ok(path) => settings.ack_audio_path = path,
+                Err(e) => {
+                    tracing::warn!("[VoiceWake] 应答语音生成失败: {e}");
+                    settings.ack_audio_path = None;
+                },
+            }
+        }
+    } else {
+        settings.ack_audio_path = None;
+    }
+
     save_settings(&app, &settings)?;
 
     if settings.enabled {
@@ -155,11 +176,7 @@ pub async fn voice_wake_ensure_started(app: AppHandle) -> Result<VoiceWakeStatus
 ///
 /// 合成只发生在保存设置时：唤醒瞬间直接播放缓存音频，避免实时合成带来的
 /// 1~3 秒延迟。缓存按 文本 + 音色 + 角色 + 合成参数 取哈希，重复保存不会重合成。
-#[tauri::command]
-pub async fn voice_wake_prepare_ack(
-    text: String,
-    app: AppHandle,
-) -> Result<Option<String>, String> {
+async fn prepare_ack_audio(app: &AppHandle, text: &str) -> Result<Option<String>, String> {
     let text = text.trim().to_string();
     if text.is_empty() {
         return Ok(None);
@@ -242,6 +259,14 @@ pub async fn voice_wake_prepare_ack(
         .await
         .map_err(|e| format!("写入应答缓存失败: {e}"))?;
     Ok(Some(path.to_string_lossy().to_string()))
+}
+
+#[tauri::command]
+pub async fn voice_wake_prepare_ack(
+    text: String,
+    app: AppHandle,
+) -> Result<Option<String>, String> {
+    prepare_ack_audio(&app, &text).await
 }
 
 #[tauri::command]

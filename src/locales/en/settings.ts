@@ -1278,6 +1278,9 @@ export default {
       ackPrepared: "Acknowledgement rendered with the character's local voice and cached.",
       ackFallback:
         "The character's local voice is unavailable; the system voice will be used: {error}",
+      ackStatus: "Acknowledgement audio",
+      ackReady: "Cached",
+      ackMissing: "Not generated - tap Save and apply",
       requestPermissions: "Request permissions",
       openSettings: "Background settings",
       model: "Wake model",

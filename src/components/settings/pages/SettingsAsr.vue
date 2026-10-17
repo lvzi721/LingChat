@@ -31,26 +31,15 @@
 
       <div class="mt-4">
         <label class="mb-1.5 block text-sm font-medium">{{ t("settings.asr.wake.phrase") }}</label>
-        <div class="flex gap-2">
-          <input
-            v-model.trim="wakeSettings.phrase"
-            maxlength="24"
-            :placeholder="t('settings.asr.wake.phrasePlaceholder')"
-            class="shadow-glass focus:border-brand focus:ring-brand/20 min-w-0 flex-1 rounded-lg
-              border border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white backdrop-blur-xl
-              backdrop-saturate-150 transition-all duration-200 focus:ring-2 focus:outline-none"
-            @keyup.enter="saveWakeSettings"
-          />
-          <button
-            type="button"
-            :disabled="wakeBusy"
-            class="bg-brand rounded-lg px-4 py-2 text-sm text-white transition-colors duration-200
-              hover:bg-[#0056b3] disabled:cursor-not-allowed disabled:opacity-50"
-            @click="saveWakeSettings"
-          >
-            {{ t("settings.asr.wake.save") }}
-          </button>
-        </div>
+        <input
+          v-model.trim="wakeSettings.phrase"
+          maxlength="24"
+          :placeholder="t('settings.asr.wake.phrasePlaceholder')"
+          class="shadow-glass focus:border-brand focus:ring-brand/20 w-full rounded-lg border
+            border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white backdrop-blur-xl
+            backdrop-saturate-150 transition-all duration-200 focus:ring-2 focus:outline-none"
+          @keyup.enter="saveWakeSettings"
+        />
         <p class="mt-1.5 text-sm text-gray-300">{{ t("settings.asr.wake.phraseHint") }}</p>
       </div>
 
@@ -75,6 +64,16 @@
         />
         <p v-if="ackNotice" class="mt-2 text-xs text-gray-400">{{ ackNotice }}</p>
       </div>
+
+      <button
+        type="button"
+        :disabled="wakeBusy"
+        class="bg-brand mt-4 w-full rounded-lg px-4 py-2.5 text-sm text-white transition-colors
+          duration-200 hover:bg-[#0056b3] disabled:cursor-not-allowed disabled:opacity-50"
+        @click="saveWakeSettings"
+      >
+        {{ t("settings.asr.wake.save") }}
+      </button>
 
       <div class="mt-4 flex flex-wrap gap-2">
         <button
@@ -155,6 +154,16 @@
               wakeStatus.serviceRunning
                 ? t("settings.asr.wake.running")
                 : t("settings.asr.wake.stopped")
+            }}
+          </span>
+        </div>
+        <div v-if="wakeSettings.ackEnabled">
+          {{ t("settings.asr.wake.ackStatus") }}:
+          <span :class="wakeSettings.ackAudioPath ? 'text-green-400' : 'text-yellow-400'">
+            {{
+              wakeSettings.ackAudioPath
+                ? t("settings.asr.wake.ackReady")
+                : t("settings.asr.wake.ackMissing")
             }}
           </span>
         </div>
