@@ -1260,6 +1260,7 @@ export default {
       ackStatus: "応答音声",
       ackReady: "キャッシュ済み",
       ackMissing: "未生成（「保存して適用」を押してください）",
+      ackPreview: "応答を試聴",
       requestPermissions: "権限を要求",
       openSettings: "バックグラウンド設定",
       model: "ウェイクモデル",

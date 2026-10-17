@@ -188,8 +188,16 @@ async fn prepare_ack_audio(app: &AppHandle, text: &str) -> Result<Option<String>
         let gs = svc.game_status.lock().await;
         gs.current_role_id
     };
-    let Some(role_id) = role_id else {
-        return Err("尚未选择角色，无法用角色音色生成应答".into());
+    // 从主菜单直接打开设置时还没有 current_role_id：退回第一个可用角色，
+    // 否则应答音频永远生成不出来（唤醒后就只剩静默）。
+    let role_id = match role_id {
+        Some(id) => id,
+        None => RoleRepo::get_all_main_roles(&state.db)
+            .await
+            .map_err(|e| format!("读取角色列表失败: {e}"))?
+            .first()
+            .map(|role| role.id)
+            .ok_or_else(|| "还没有可用角色，无法生成角色应答".to_string())?,
     };
 
     let role_settings =

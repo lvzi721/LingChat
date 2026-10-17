@@ -1281,6 +1281,7 @@ export default {
       ackStatus: "Acknowledgement audio",
       ackReady: "Cached",
       ackMissing: "Not generated - tap Save and apply",
+      ackPreview: "Preview acknowledgement",
       requestPermissions: "Request permissions",
       openSettings: "Background settings",
       model: "Wake model",

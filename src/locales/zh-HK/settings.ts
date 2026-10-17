@@ -1234,6 +1234,7 @@ export default {
       ackStatus: "應答語音",
       ackReady: "已快取",
       ackMissing: "未生成，撳「保存並套用」",
+      ackPreview: "試聽應答",
       requestPermissions: "要求權限",
       openSettings: "系統後台設定",
       model: "喚醒模型",

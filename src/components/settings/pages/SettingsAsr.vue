@@ -62,6 +62,16 @@
             border-white/10 bg-white/10 px-3 py-2.5 text-sm text-white backdrop-blur-xl
             backdrop-saturate-150 transition-all duration-200 focus:ring-2 focus:outline-none"
         />
+        <button
+          v-if="wakeSettings.ackEnabled"
+          type="button"
+          :disabled="wakeBusy"
+          class="mt-2 rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white/80
+            transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+          @click="previewAck"
+        >
+          {{ t("settings.asr.wake.ackPreview") }}
+        </button>
         <p v-if="ackNotice" class="mt-2 text-xs text-gray-400">{{ ackNotice }}</p>
       </div>
 
@@ -395,6 +405,7 @@
 <script setup lang="ts">
   import { ref, computed, onMounted, watch } from "vue";
   import { useI18n } from "vue-i18n";
+  import { convertFileSrc } from "@tauri-apps/api/core";
 
   import { Toggle } from "../../base";
   import { useAsrStore } from "@/stores/modules/settings/asr";
@@ -409,6 +420,7 @@
     voiceWakePrepareAck,
     voiceWakeRequestPermissions,
     voiceWakeSaveSettings,
+    voiceWakeSetPaused,
     type VoiceWakeSettings,
     type VoiceWakeStatus,
   } from "@/api/services/voice-wake";
@@ -554,6 +566,35 @@
     } catch (error) {
       wakeMessage.value = t("settings.asr.wake.openSettingsFailed", { error: String(error) });
       wakeMessageOk.value = false;
+    }
+  }
+
+  /** 试听：生成/复用应答音频后暂停唤醒服务并直接播放，用于排查"没有应答"。 */
+  async function previewAck() {
+    if (wakeBusy.value) return;
+    wakeBusy.value = true;
+    ackNotice.value = "";
+    let paused = false;
+    try {
+      const path = await voiceWakePrepareAck(wakeSettings.value.ackText);
+      if (!path) {
+        ackNotice.value = t("settings.asr.wake.ackMissing");
+        return;
+      }
+      await voiceWakeSetPaused(true).catch(() => {});
+      paused = true;
+      await new Promise<void>((resolve, reject) => {
+        const audio = new Audio(convertFileSrc(path));
+        audio.onended = () => resolve();
+        audio.onerror = () => reject(new Error("audio playback failed"));
+        void audio.play().catch(reject);
+      });
+      ackNotice.value = t("settings.asr.wake.ackPrepared");
+    } catch (error) {
+      ackNotice.value = t("settings.asr.wake.ackFallback", { error: String(error) });
+    } finally {
+      if (paused) await voiceWakeSetPaused(false).catch(() => {});
+      wakeBusy.value = false;
     }
   }
 

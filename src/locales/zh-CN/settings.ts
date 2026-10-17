@@ -1281,6 +1281,7 @@ export default {
       ackStatus: "应答语音",
       ackReady: "已缓存",
       ackMissing: "未生成，请点“保存并应用”",
+      ackPreview: "试听应答",
       requestPermissions: "请求权限",
       openSettings: "系统后台设置",
       model: "唤醒模型",
