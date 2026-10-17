@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct VoiceWakeStatus {
     pub supported: bool,
     pub model_present: bool,
+    pub local_asr_present: bool,
     pub engine_ready: bool,
     pub service_running: bool,
     pub permission_granted: bool,
@@ -23,6 +24,7 @@ impl Default for VoiceWakeStatus {
         Self {
             supported: false,
             model_present: false,
+            local_asr_present: false,
             engine_ready: false,
             service_running: false,
             permission_granted: false,

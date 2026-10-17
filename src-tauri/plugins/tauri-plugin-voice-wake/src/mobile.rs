@@ -64,6 +64,20 @@ impl<R: Runtime> VoiceWake<R> {
             .map_err(|e| Error::PluginInvoke(e.to_string()))
     }
 
+    /// 取走锁屏时暂存的识别文本（前端重新就绪后回填）。
+    pub fn take_pending_text(&self) -> Result<Option<String>> {
+        #[derive(serde::Deserialize)]
+        struct PendingText {
+            #[serde(default)]
+            text: Option<String>,
+        }
+        let resp: PendingText = self
+            .handle
+            .run_mobile_plugin("takePendingText", serde_json::json!({}))
+            .map_err(|e| Error::PluginInvoke(e.to_string()))?;
+        Ok(resp.text)
+    }
+
     fn invoke<P, T>(&self, method: &str, payload: P) -> Result<T>
     where
         P: serde::Serialize,

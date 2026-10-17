@@ -308,3 +308,8 @@ pub async fn voice_wake_open_system_settings(app: AppHandle) -> Result<(), Strin
     tauri_plugin_voice_wake::open_system_settings(&app).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub async fn voice_wake_take_pending_text(app: AppHandle) -> Result<Option<String>, String> {
+    tauri_plugin_voice_wake::take_pending_text(&app).map_err(|e| e.to_string())
+}
+

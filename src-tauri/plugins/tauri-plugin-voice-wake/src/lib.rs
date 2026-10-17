@@ -119,6 +119,24 @@ pub fn open_system_settings<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<()>
     }
 }
 
+/// 取走服务端暂存的识别文本。
+pub fn take_pending_text<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> Result<Option<String>> {
+    #[cfg(target_os = "android")]
+    {
+        let state = app
+            .try_state::<VoiceWake<R>>()
+            .ok_or(Error::NotInitialized)?;
+        state.take_pending_text()
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = app;
+        Ok(None)
+    }
+}
+
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("voice-wake")
         .setup(|app, api| {

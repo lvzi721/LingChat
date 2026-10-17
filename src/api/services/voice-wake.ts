@@ -33,6 +33,12 @@ export interface VoiceWakeDetectedEvent {
   serial: number;
 }
 
+export interface VoiceWakeRecognizedEvent {
+  text: string;
+  phrase: string;
+  timestamp: number;
+}
+
 const DEFAULT_SETTINGS: VoiceWakeSettings = {
   enabled: false,
   phrase: "灵灵",
@@ -80,6 +86,7 @@ function startDetectionPolling(): void {
 export async function ensureVoiceWakeListener(): Promise<void> {
   if (!isAndroid()) return;
   startDetectionPolling();
+  void ensureRecognizedChannel();
   if (channel) return;
   if (listenerPromise) return listenerPromise;
 
@@ -96,6 +103,53 @@ export async function ensureVoiceWakeListener(): Promise<void> {
   });
 
   return listenerPromise;
+}
+
+let recognizedChannel: Channel<VoiceWakeRecognizedEvent> | null = null;
+let recognizedPromise: Promise<void> | null = null;
+const recognizedHandlers = new Set<(event: VoiceWakeRecognizedEvent) => void>();
+
+async function ensureRecognizedChannel(): Promise<void> {
+  if (!isAndroid() || recognizedChannel) return;
+  if (recognizedPromise) return recognizedPromise;
+
+  recognizedPromise = (async () => {
+    const next = new Channel<VoiceWakeRecognizedEvent>();
+    next.onmessage = (event) => {
+      for (const handler of recognizedHandlers) {
+        try {
+          handler(event);
+        } catch (error) {
+          console.warn("[VoiceWake] 识别事件处理器失败:", error);
+        }
+      }
+    };
+    await invoke("plugin:voice-wake|registerListener", {
+      event: "recognized",
+      handler: next,
+    });
+    recognizedChannel = next;
+  })().finally(() => {
+    recognizedPromise = null;
+  });
+
+  return recognizedPromise;
+}
+
+export function onVoiceWakeRecognized(
+  handler: (event: VoiceWakeRecognizedEvent) => void
+): () => void {
+  recognizedHandlers.add(handler);
+  void ensureRecognizedChannel().catch((error) => {
+    console.warn("[VoiceWake] 注册原生识别事件失败:", error);
+  });
+  return () => recognizedHandlers.delete(handler);
+}
+
+/** 取走锁屏时由原生服务暂存的识别结果。 */
+export async function voiceWakeTakePendingText(): Promise<string | null> {
+  const resp = await invoke<{ text?: string }>("voice_wake_take_pending_text");
+  return resp?.text ?? null;
 }
 
 export function onVoiceWakeDetected(handler: (event: VoiceWakeDetectedEvent) => void): () => void {

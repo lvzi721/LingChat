@@ -26,7 +26,10 @@ import com.k2fsa.sherpa.onnx.FeatureConfig
 import com.k2fsa.sherpa.onnx.KeywordSpotter
 import com.k2fsa.sherpa.onnx.KeywordSpotterConfig
 import com.k2fsa.sherpa.onnx.OnlineModelConfig
+import com.k2fsa.sherpa.onnx.OnlineRecognizer
+import com.k2fsa.sherpa.onnx.OnlineRecognizerConfig
 import com.k2fsa.sherpa.onnx.OnlineTransducerModelConfig
+import com.k2fsa.sherpa.onnx.OnlineZipformer2CtcModelConfig
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
@@ -57,8 +60,13 @@ class VoiceWakeService : Service() {
         private const val PREF_ACK_AUDIO = "ackAudioPath"
         private const val ASSET_DIR = "kws"
         private const val MODEL_DIR = "kws"
+        private const val ASR_ASSET_DIR = "asr"
+        private const val ASR_MODEL_DIR = "asr"
+        private const val ASR_MODEL = "model.int8.onnx"
+        private const val ASR_TOKENS = "tokens.txt"
         private const val SAMPLE_RATE = 16000
         private const val CHUNK_SAMPLES = 1600 // 100ms
+        private const val MAX_COMMAND_MS = 10_000L
         private const val FALLBACK_RESUME_MS = 90_000L
         private const val ACK_TIMEOUT_MS = 2_500L
 
@@ -70,6 +78,7 @@ class VoiceWakeService : Service() {
 
         private val MODEL_FILES =
             listOf(ENCODER, DECODER, JOINER, TOKENS, KEYWORDS)
+        private val ASR_FILES = listOf(ASR_MODEL, ASR_TOKENS)
 
         @Volatile
         var isRunning: Boolean = false
@@ -122,6 +131,25 @@ class VoiceWakeService : Service() {
         @Volatile
         var lastDetectionTranscript: String? = null
             private set
+
+        /** 前端不可用时暂存的一次识别结果，等界面回来再取走。 */
+        @Volatile
+        var pendingText: String? = null
+            private set
+
+        fun takePendingText(): String? {
+            val text = pendingText
+            pendingText = null
+            return text
+        }
+
+        /** APK 内是否打进了指令识别模型。 */
+        fun detectAsrPresent(context: Context): Boolean =
+            try {
+                (context.assets.list(ASR_ASSET_DIR)?.size ?: 0) >= ASR_FILES.size
+            } catch (_: Throwable) {
+                false
+            }
 
         /** APK 内是否打进了唤醒模型（无需启动服务即可判断）。 */
         fun detectModelPresent(context: Context): Boolean =
@@ -415,27 +443,60 @@ class VoiceWakeService : Service() {
         // 应答与前端状态无关：锁屏时 Activity 可能已被回收（hasListener=false），
         // 但用户仍然需要听到"我在"这一声确认。
         playAck {
-            if (!VoiceWakeEventBridge.hasListener("detected")) {
-                // 前端不可用：不占用麦克风，立即恢复监听，避免服务卡在暂停态。
-                isSuspended = false
-                updateNotification("检测到“$text”，界面未就绪，继续监听")
-                startListening()
-                return@playAck
-            }
-            isSuspended = true
-            cancelFallbackResume()
-            updateNotification("已唤醒，等待 LingChat 接收")
-            VoiceWakeEventBridge.emit(
-                "detected",
-                JSObject().apply {
-                    put("phrase", currentPhrase)
-                    put("transcript", text)
-                    put("timestamp", lastDetectionAt)
-                    put("serial", lastDetectionSerial)
-                },
-            )
-            scheduleFallbackResume()
+            Thread({
+                val spoken = captureCommand()
+                mainHandler.post { finishCommand(text, spoken) }
+            }, "voice-wake-asr").start()
         }
+    }
+
+    /**
+     * 唤醒后的指令识别收尾：优先把文字交给前端；前端不在就暂存，等界面回来再取。
+     * 本地识别失败/没听到内容时退回旧流程（交给前端录音识别）。
+     */
+    private fun finishCommand(wakePhrase: String, spoken: String?) {
+        if (isRunning.not()) return
+
+        if (!spoken.isNullOrBlank()) {
+            if (VoiceWakeEventBridge.hasListener("recognized")) {
+                updateNotification("已识别，等待 LingChat 接收")
+                VoiceWakeEventBridge.emit(
+                    "recognized",
+                    JSObject().apply {
+                        put("text", spoken)
+                        put("phrase", wakePhrase)
+                        put("timestamp", System.currentTimeMillis())
+                    },
+                )
+            } else {
+                pendingText = spoken
+                updateNotification("已识别（界面未就绪，稍后回填）")
+            }
+            isSuspended = false
+            startListening()
+            return
+        }
+
+        if (!VoiceWakeEventBridge.hasListener("detected")) {
+            isSuspended = false
+            updateNotification("检测到“$wakePhrase”，界面未就绪，继续监听")
+            startListening()
+            return
+        }
+
+        isSuspended = true
+        cancelFallbackResume()
+        updateNotification("已唤醒，等待 LingChat 接收")
+        VoiceWakeEventBridge.emit(
+            "detected",
+            JSObject().apply {
+                put("phrase", currentPhrase)
+                put("transcript", wakePhrase)
+                put("timestamp", lastDetectionAt)
+                put("serial", lastDetectionSerial)
+            },
+        )
+        scheduleFallbackResume()
     }
 
     /**
@@ -580,6 +641,103 @@ class VoiceWakeService : Service() {
             .mapNotNull { it.trim().split(' ').firstOrNull() }
             .filter { it.isNotEmpty() && !it.startsWith("<") && !it.startsWith("#") }
             .toSet()
+
+    private fun ensureAsrFiles(): File? {
+        val dir = File(filesDir, ASR_MODEL_DIR)
+        return try {
+            dir.mkdirs()
+            for (name in ASR_FILES) {
+                val target = File(dir, name)
+                if (!target.isFile || target.length() == 0L) {
+                    assets.open("$ASR_ASSET_DIR/$name").use { input ->
+                        target.outputStream().use { output -> input.copyTo(output) }
+                    }
+                }
+            }
+            dir
+        } catch (_: Throwable) {
+            lastError = "asr_model_missing"
+            null
+        }
+    }
+
+    /**
+     * 唤醒后的一段指令录音 → 本地流式识别（流式 zipformer2 CTC）。
+     *
+     * 用 sherpa 自带的端点检测判断一句话结束；最长 10 秒兜底。识别结果为空
+     * （没说话/太吵）时返回 null，由调用方退回旧的前端录音流程。
+     */
+    private fun captureCommand(): String? {
+        val dir = ensureAsrFiles() ?: return null
+        var recognizer: OnlineRecognizer? = null
+        var record: AudioRecord? = null
+        var stream: com.k2fsa.sherpa.onnx.OnlineStream? = null
+        return try {
+            val engine = OnlineRecognizer(
+                config = OnlineRecognizerConfig(
+                    featConfig = FeatureConfig(sampleRate = SAMPLE_RATE, featureDim = 80),
+                    modelConfig = OnlineModelConfig(
+                        zipformer2Ctc = OnlineZipformer2CtcModelConfig(
+                            model = File(dir, ASR_MODEL).absolutePath,
+                        ),
+                        tokens = File(dir, ASR_TOKENS).absolutePath,
+                        numThreads = 2,
+                        provider = "cpu",
+                        modelType = "zipformer2_ctc",
+                    ),
+                    enableEndpoint = true,
+                ),
+            )
+            recognizer = engine
+            val st = engine.createStream()
+            stream = st
+
+            val rec = createRecord() ?: return null
+            record = rec
+            recordRef = rec
+            rec.startRecording()
+            notifyInMain("正在听你说")
+
+            val buffer = ShortArray(CHUNK_SAMPLES)
+            val deadline = System.currentTimeMillis() + MAX_COMMAND_MS
+            while (System.currentTimeMillis() < deadline) {
+                val read = rec.read(buffer, 0, buffer.size)
+                if (read <= 0) continue
+                val samples = FloatArray(read) { buffer[it] / 32768.0f }
+                st.acceptWaveform(samples, SAMPLE_RATE)
+                while (engine.isReady(st)) engine.decode(st)
+                if (engine.isEndpoint(st)) break
+            }
+            engine.getResult(st).text.trim()
+        } catch (error: Throwable) {
+            lastError = (error.message ?: "asr_failed").take(160)
+            null
+        } finally {
+            try {
+                record?.let {
+                    if (it.recordingState == AudioRecord.RECORDSTATE_RECORDING) it.stop()
+                }
+            } catch (_: Throwable) {
+                // ignore
+            }
+            try {
+                record?.release()
+            } catch (_: Throwable) {
+                // ignore
+            }
+            recordRef = null
+            try {
+                stream?.release()
+            } catch (_: Throwable) {
+                // ignore
+            }
+            try {
+                recognizer?.release()
+            } catch (_: Throwable) {
+                // ignore
+            }
+        }
+    }
 
     private fun buildConfig(dir: File) = KeywordSpotterConfig(
         featConfig = FeatureConfig(sampleRate = SAMPLE_RATE, featureDim = 80),

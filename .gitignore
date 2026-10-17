@@ -201,4 +201,5 @@ src-tauri/plugins/tauri-plugin-voice-wake/.deps-cache/
 src-tauri/plugins/tauri-plugin-voice-wake/android/libs/
 src-tauri/plugins/tauri-plugin-voice-wake/android/src/main/jniLibs/
 src-tauri/plugins/tauri-plugin-voice-wake/android/src/main/assets/kws/
+src-tauri/plugins/tauri-plugin-voice-wake/android/src/main/assets/asr/
 

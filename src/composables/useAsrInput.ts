@@ -18,8 +18,10 @@ import {
 } from "@/api/services/asr";
 import {
   onVoiceWakeDetected,
+  onVoiceWakeRecognized,
   voiceWakeEnsureStarted,
   voiceWakeSetPaused,
+  voiceWakeTakePendingText,
 } from "@/api/services/voice-wake";
 import { useGameStore } from "@/stores/modules/game";
 import { useAsrStore } from "@/stores/modules/settings/asr";
@@ -135,6 +137,21 @@ function resetSession() {
   phase.value = "idle";
   asrVoiceActive.value = false;
   activeSource.value = null;
+}
+
+/**
+ * 原生服务完成本地识别后送达的文字：按发送模式回填或自动发送。
+ * 与 handle() 共用同一套 window 事件，避免绕开 GameDialog 的发送链路。
+ */
+function deliverWakeText(text: string): void {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  const mode = asrStore?.settings.send_mode ?? "fill_only";
+  if (mode === "fill_only") {
+    window.dispatchEvent(new CustomEvent("asr-text", { detail: trimmed }));
+  } else {
+    window.dispatchEvent(new CustomEvent("asr-send", { detail: trimmed }));
+  }
 }
 
 /** ASR 会话结束后恢复原生前台服务的本地监听。TTS 播放期间保持暂停。 */
@@ -725,6 +742,20 @@ function ensureInit() {
       resumeWakeService();
     }
   });
+
+  // 原生本地识别完成：直接拿到文字，不再依赖 WebView 录音。
+  onVoiceWakeRecognized((event) => deliverWakeText(event.text ?? ""));
+
+  // 锁屏时界面可能被回收，识别结果会暂存在服务里；界面恢复后补发。
+  const drainPendingWakeText = () => {
+    void voiceWakeTakePendingText()
+      .then((text) => {
+        if (text) deliverWakeText(text);
+      })
+      .catch(() => {});
+  };
+  drainPendingWakeText();
+  window.addEventListener("focus", drainPendingWakeText);
 
   // 已在设置中启用的用户，应用一启动就恢复锁屏监听服务。
   void voiceWakeEnsureStarted().catch((error) => {

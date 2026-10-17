@@ -69,6 +69,14 @@ class VoiceWakePlugin(private val hostActivity: Activity) : Plugin(hostActivity)
         invoke.resolve(statusObject())
     }
 
+    /** 取走锁屏时暂存的识别结果（前端重新就绪后回填）。 */
+    @Command
+    fun takePendingText(invoke: Invoke) {
+        val out = JSObject()
+        VoiceWakeService.takePendingText()?.takeIf { it.isNotBlank() }?.let { out.put("text", it) }
+        invoke.resolve(out)
+    }
+
     @Command
     fun setPaused(invoke: Invoke) {
         val paused = invoke.getArgs().optBoolean("paused", false)
@@ -126,6 +134,7 @@ class VoiceWakePlugin(private val hostActivity: Activity) : Plugin(hostActivity)
         val out = JSObject()
         out.put("supported", modelPresent)
         out.put("modelPresent", modelPresent)
+        out.put("localAsrPresent", VoiceWakeService.detectAsrPresent(hostActivity))
         out.put("engineReady", VoiceWakeService.engineReady)
         out.put("serviceRunning", VoiceWakeService.isRunning)
         out.put("permissionGranted", hasRecordingPermission())

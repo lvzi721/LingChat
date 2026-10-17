@@ -5,6 +5,7 @@ const COMMANDS: &[&str] = &[
     "set_paused",
     "request_wake_permissions",
     "open_system_settings",
+    "takePendingText",
 ];
 
 fn main() {

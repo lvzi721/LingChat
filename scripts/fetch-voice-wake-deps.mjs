@@ -47,6 +47,11 @@ const MODEL_FILES = [
   "keywords.txt",
 ];
 
+// 唤醒后的指令识别模型：streaming zipformer2 CTC（中文，int8），约 25MB。
+const ASR_MODEL_NAME = "sherpa-onnx-streaming-zipformer-small-ctc-zh-int8-2025-04-01";
+const ASR_URL = `https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/${ASR_MODEL_NAME}.tar.bz2`;
+const ASR_FILES = ["model.int8.onnx", "tokens.txt"];
+
 const force = process.argv.includes("--force");
 
 async function exists(p, minBytes = 1) {
@@ -115,6 +120,7 @@ async function main() {
   const libsDir = path.join(pluginRoot, "libs");
   const jniDir = path.join(pluginRoot, "src", "main", "jniLibs", "arm64-v8a");
   const assetsDir = path.join(pluginRoot, "src", "main", "assets", "kws");
+  const asrAssetsDir = path.join(pluginRoot, "src", "main", "assets", "asr");
 
   const needEngine =
     force ||
@@ -123,6 +129,11 @@ async function main() {
   const needModel =
     force ||
     !(await Promise.all(MODEL_FILES.map((n) => exists(path.join(assetsDir, n), 1024)))).every(
+      Boolean
+    );
+  const needAsr =
+    force ||
+    !(await Promise.all(ASR_FILES.map((n) => exists(path.join(asrAssetsDir, n), 1024)))).every(
       Boolean
     );
 
@@ -169,10 +180,29 @@ async function main() {
     console.log("[deps] 模型已存在，跳过");
   }
 
+  if (needAsr) {
+    const tar = await download(ASR_URL, path.join(cacheDir, `${ASR_MODEL_NAME}.tar.bz2`));
+    const unpackDir = path.join(cacheDir, "asr");
+    if (force) await rm(unpackDir, { recursive: true, force: true });
+    await mkdir(unpackDir, { recursive: true });
+    console.log("[deps] 解包指令识别模型");
+    await unpackAll(tar, unpackDir);
+
+    const modelDir = path.join(unpackDir, ASR_MODEL_NAME);
+    await mkdir(asrAssetsDir, { recursive: true });
+    for (const name of ASR_FILES) {
+      await copyFile(path.join(modelDir, name), path.join(asrAssetsDir, name));
+    }
+    console.log(`[deps] 指令识别模型就绪：${ASR_MODEL_NAME}`);
+  } else {
+    console.log("[deps] 指令识别模型已存在，跳过");
+  }
+
   const total = (
     await Promise.all(
       [
         ...MODEL_FILES.map((n) => path.join(assetsDir, n)),
+        ...ASR_FILES.map((n) => path.join(asrAssetsDir, n)),
         path.join(libsDir, "sherpa-onnx.jar"),
       ].map(async (p) => (await stat(p)).size)
     )
