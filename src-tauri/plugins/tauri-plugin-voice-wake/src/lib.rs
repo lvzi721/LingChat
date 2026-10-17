@@ -137,6 +137,26 @@ pub fn take_pending_text<R: Runtime>(
     }
 }
 
+/// 手动麦克风：用内置模型识别一次，返回 (text, error)。
+pub fn recognize_once<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    max_ms: u64,
+) -> Result<(Option<String>, Option<String>)> {
+    #[cfg(target_os = "android")]
+    {
+        let state = app
+            .try_state::<VoiceWake<R>>()
+            .ok_or(Error::NotInitialized)?;
+        state.recognize_once(max_ms)
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = app;
+        let _ = max_ms;
+        Err(Error::UnsupportedPlatform)
+    }
+}
+
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("voice-wake")
         .setup(|app, api| {

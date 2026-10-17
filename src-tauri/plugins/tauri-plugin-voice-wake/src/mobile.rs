@@ -78,6 +78,22 @@ impl<R: Runtime> VoiceWake<R> {
         Ok(resp.text)
     }
 
+    /// 手动麦克风：用内置模型识别一次，返回 (text, error)。
+    pub fn recognize_once(&self, max_ms: u64) -> Result<(Option<String>, Option<String>)> {
+        #[derive(serde::Deserialize)]
+        struct OnceResult {
+            #[serde(default)]
+            text: Option<String>,
+            #[serde(default)]
+            error: Option<String>,
+        }
+        let resp: OnceResult = self
+            .handle
+            .run_mobile_plugin("recognizeOnce", serde_json::json!({ "maxMs": max_ms }))
+            .map_err(|e| Error::PluginInvoke(e.to_string()))?;
+        Ok((resp.text, resp.error))
+    }
+
     fn invoke<P, T>(&self, method: &str, payload: P) -> Result<T>
     where
         P: serde::Serialize,

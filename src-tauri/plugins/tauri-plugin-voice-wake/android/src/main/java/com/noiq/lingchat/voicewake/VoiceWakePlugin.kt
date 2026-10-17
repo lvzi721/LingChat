@@ -77,6 +77,19 @@ class VoiceWakePlugin(private val hostActivity: Activity) : Plugin(hostActivity)
         invoke.resolve(out)
     }
 
+    /** 手动麦克风：用内置模型做一次识别（最长 maxMs），返回 {text} 或 {error}。 */
+    @Command
+    fun recognizeOnce(invoke: Invoke) {
+        val maxMs = invoke.getArgs().optLong("maxMs", 15000L)
+        Thread({
+            val (text, error) = LocalAsr.recognize(hostActivity, maxMs)
+            val out = JSObject()
+            if (!text.isNullOrBlank()) out.put("text", text)
+            if (!error.isNullOrBlank()) out.put("error", error)
+            invoke.resolve(out)
+        }, "voice-wake-once").start()
+    }
+
     @Command
     fun setPaused(invoke: Invoke) {
         val paused = invoke.getArgs().optBoolean("paused", false)

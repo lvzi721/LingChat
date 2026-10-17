@@ -153,6 +153,10 @@ export async function voiceWakeTakePendingText(): Promise<string | null> {
   return resp?.text ?? null;
 }
 
+/** 手动麦克风：用内置模型识别一次（端点或超时结束）。 */
+export const voiceWakeRecognizeOnce = (maxMs = 15000) =>
+  invoke<string>("voice_wake_recognize_once", { maxMs });
+
 export function onVoiceWakeDetected(handler: (event: VoiceWakeDetectedEvent) => void): () => void {
   detectedHandlers.add(handler);
   void ensureVoiceWakeListener().catch((error) => {

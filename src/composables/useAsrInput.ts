@@ -20,6 +20,7 @@ import {
   onVoiceWakeDetected,
   onVoiceWakeRecognized,
   voiceWakeEnsureStarted,
+  voiceWakeRecognizeOnce,
   voiceWakeSetPaused,
   voiceWakeTakePendingText,
 } from "@/api/services/voice-wake";
@@ -469,6 +470,38 @@ function stopEnergyMonitor() {
 }
 
 // ── 会话生命周期 ────────────────────────────────────────────
+/** 手动麦克风是否正由原生内置模型处理（此时前端的 stop 不参与）。 */
+let nativeManualActive = false;
+
+/**
+ * 手动麦克风优先走内置模型：一端录音 + 端点检测，识别完直接回填/自动发送。
+ * 模型缺失时返回 false，让调用方退回原来的 WebView 录音 + 服务商识别流程。
+ */
+async function runNativeManualAsr(): Promise<boolean> {
+  nativeManualActive = true;
+  activeSource.value = "button";
+  phase.value = "recording";
+  asrVoiceActive.value = true;
+  asrStore?.setMicState("recording");
+  await pauseWakeServiceForAsr();
+  try {
+    const text = await voiceWakeRecognizeOnce(15000);
+    if (text?.trim()) deliverWakeText(text);
+    return true;
+  } catch (error) {
+    const code = parseAsrError(error).code || String(error);
+    if (code.includes("asr_model_missing")) {
+      return false;
+    }
+    asrStore?.onError(code);
+    return true;
+  } finally {
+    nativeManualActive = false;
+    resetSession();
+    resumeWakeService();
+  }
+}
+
 async function start(source: AsrSource) {
   // §1 全 12 项门控；button / wake 都是用户主动触发，跳过短暂显示锁。
   const manualLike = source === "button" || source === "wake";
@@ -487,6 +520,11 @@ async function start(source: AsrSource) {
   if (activeSource.value !== null) {
     throw new Error("ASR session busy");
   }
+
+  if (source === "button" && (await runNativeManualAsr())) {
+    return;
+  }
+
   activeSource.value = source;
   phase.value = "recording";
   asrVoiceActive.value = true;
@@ -569,6 +607,7 @@ async function start(source: AsrSource) {
 
 /** 手动结束（mic 按钮 / 快捷键松开 / VAD turn 结束）：停止 → 识别 → 处理 */
 function stop() {
+  if (nativeManualActive) return;
   if (phase.value !== "recording") return;
   const source = activeSource.value;
   if (!source) return;

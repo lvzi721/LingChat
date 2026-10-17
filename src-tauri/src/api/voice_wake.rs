@@ -313,3 +313,25 @@ pub async fn voice_wake_take_pending_text(app: AppHandle) -> Result<Option<Strin
     tauri_plugin_voice_wake::take_pending_text(&app).map_err(|e| e.to_string())
 }
 
+/// 手动麦克风走内置模型：阻塞到识别结束（端点或超时），返回文本。
+#[tauri::command]
+pub async fn voice_wake_recognize_once(
+    max_ms: Option<u64>,
+    app: AppHandle,
+) -> Result<String, String> {
+    let ms = max_ms.unwrap_or(15_000).clamp(2_000, 30_000);
+    let handle = app.clone();
+    let (text, error) = tauri::async_runtime::spawn_blocking(move || {
+        tauri_plugin_voice_wake::recognize_once(&handle, ms)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())?;
+
+    match (text, error) {
+        (Some(text), _) if !text.trim().is_empty() => Ok(text),
+        (_, Some(error)) => Err(error),
+        _ => Err("asr_empty".into()),
+    }
+}
+
