@@ -467,8 +467,8 @@ class VoiceWakeService : Service() {
         if (isRunning.not()) return
 
         if (!spoken.isNullOrBlank()) {
+            updateNotification("识别：${spoken.take(24)}")
             if (VoiceWakeEventBridge.hasListener("recognized")) {
-                updateNotification("已识别，等待 LingChat 接收")
                 VoiceWakeEventBridge.emit(
                     "recognized",
                     JSObject().apply {
@@ -479,7 +479,6 @@ class VoiceWakeService : Service() {
                 )
             } else {
                 pendingText = spoken
-                updateNotification("已识别（界面未就绪，稍后回填）")
             }
             isSuspended = false
             startListening()
@@ -488,7 +487,7 @@ class VoiceWakeService : Service() {
 
         if (!VoiceWakeEventBridge.hasListener("detected")) {
             isSuspended = false
-            updateNotification("检测到“$wakePhrase”，界面未就绪，继续监听")
+            updateNotification(lastError?.let { "未识别到语音（$it），继续监听" } ?: "未识别到语音，继续监听")
             startListening()
             return
         }

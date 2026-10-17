@@ -132,22 +132,38 @@ object LocalAsr {
             AudioFormat.ENCODING_PCM_16BIT,
         )
         if (minBuffer <= 0) return null
-        val record = try {
-            AudioRecord(
-                MediaRecorder.AudioSource.VOICE_RECOGNITION,
-                SAMPLE_RATE,
-                AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT,
-                maxOf(minBuffer * 2, CHUNK_SAMPLES * 4),
-            )
-        } catch (_: Throwable) {
-            null
-        } ?: return null
-        if (record.state != AudioRecord.STATE_INITIALIZED) {
-            record.release()
-            return null
+        // 唤醒服务刚释放麦克风时，紧接着新建 AudioRecord 可能短暂失败：
+        // 重试几次再放弃（锁屏后无法识别多半卡在这里）。
+        repeat(3) { attempt ->
+            val record = try {
+                AudioRecord(
+                    MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                    SAMPLE_RATE,
+                    AudioFormat.CHANNEL_IN_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT,
+                    maxOf(minBuffer * 2, CHUNK_SAMPLES * 4),
+                )
+            } catch (_: Throwable) {
+                null
+            }
+            if (record != null && record.state == AudioRecord.STATE_INITIALIZED) {
+                return record
+            }
+            try {
+                record?.release()
+            } catch (_: Throwable) {
+                // ignore
+            }
+            if (attempt < 2) {
+                try {
+                    Thread.sleep(150)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    return null
+                }
+            }
         }
-        return record
+        return null
     }
 }
 
