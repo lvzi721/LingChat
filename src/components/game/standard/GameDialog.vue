@@ -757,14 +757,8 @@
     try {
       // auto_listen 模式开 + 总开关开：mic 按钮 = 切换功能开关（暂停/恢复监听），
       // 不改模式设置；总开关关 → 走手动录音分支
-      if (
-        !asrInput.nativeAsrReady.value &&
-        autoListenOn.value &&
-        asrStore.settings.voice_input_enabled
-      ) {
-        asrInput.toggleAutoListenFunction();
-        return;
-      }
+      // 手动麦克风始终先尝试内置识别（模型缺失时才回落到旧流程）。
+      // 不能用"自动监听开关"拦截，否则开着自动识别时按钮只会切换监听、不录音。
       if (asrInput.phase.value === "idle") {
         await asrInput.start("button");
       } else if (asrInput.phase.value === "recording") {
