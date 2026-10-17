@@ -90,6 +90,19 @@ class VoiceWakePlugin(private val hostActivity: Activity) : Plugin(hostActivity)
         }, "voice-wake-once").start()
     }
 
+    /** 诊断：录音 5 秒用内置模型识别一次，直接回传文本或错误。 */
+    @Command
+    fun testRecognition(invoke: Invoke) {
+        val maxMs = invoke.getArgs().optLong("maxMs", 5000L)
+        Thread({
+            val (text, error) = LocalAsr.recognize(hostActivity, maxMs)
+            val out = JSObject()
+            if (!text.isNullOrBlank()) out.put("text", text)
+            if (!error.isNullOrBlank()) out.put("error", error)
+            invoke.resolve(out)
+        }, "voice-wake-test").start()
+    }
+
     @Command
     fun setPaused(invoke: Invoke) {
         val paused = invoke.getArgs().optBoolean("paused", false)

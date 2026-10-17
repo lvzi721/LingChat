@@ -335,3 +335,21 @@ pub async fn voice_wake_recognize_once(
     }
 }
 
+/// 诊断：录音约 5 秒，用内置模型识别一次，返回文本或错误码。
+#[tauri::command]
+pub async fn voice_wake_test_recognition(app: AppHandle) -> Result<String, String> {
+    let handle = app.clone();
+    let (text, error) = tauri::async_runtime::spawn_blocking(move || {
+        tauri_plugin_voice_wake::test_recognition(&handle, 5_000)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())?;
+
+    match (text, error) {
+        (Some(text), _) if !text.trim().is_empty() => Ok(text),
+        (_, Some(error)) => Err(error),
+        _ => Err("asr_empty".into()),
+    }
+}
+

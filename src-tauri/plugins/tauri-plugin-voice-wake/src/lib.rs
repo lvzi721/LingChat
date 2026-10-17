@@ -157,6 +157,26 @@ pub fn recognize_once<R: Runtime>(
     }
 }
 
+/// 诊断：用内置模型跑一次测试识别，返回 (text, error)。
+pub fn test_recognition<R: Runtime>(
+    app: &tauri::AppHandle<R>,
+    max_ms: u64,
+) -> Result<(Option<String>, Option<String>)> {
+    #[cfg(target_os = "android")]
+    {
+        let state = app
+            .try_state::<VoiceWake<R>>()
+            .ok_or(Error::NotInitialized)?;
+        state.test_recognition(max_ms)
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = app;
+        let _ = max_ms;
+        Err(Error::UnsupportedPlatform)
+    }
+}
+
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("voice-wake")
         .setup(|app, api| {

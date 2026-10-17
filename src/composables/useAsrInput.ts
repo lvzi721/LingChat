@@ -24,6 +24,7 @@ import {
   voiceWakeSetPaused,
   voiceWakeTakePendingText,
 } from "@/api/services/voice-wake";
+import { i18n } from "@/locales";
 import { useGameStore } from "@/stores/modules/game";
 import { useAsrStore } from "@/stores/modules/settings/asr";
 import { useUIStore } from "@/stores/modules/ui/ui";
@@ -484,6 +485,13 @@ async function runNativeManualAsr(): Promise<boolean> {
   asrVoiceActive.value = true;
   asrStore?.setMicState("recording");
   await pauseWakeServiceForAsr();
+  uiStore?.showNotification({
+    type: "info",
+    title: i18n.global.t("settings.asr.wake.listeningTitle"),
+    message: i18n.global.t("settings.asr.wake.listeningHint"),
+    duration: 3000,
+    skipTipsCheck: true,
+  });
   try {
     const text = await voiceWakeRecognizeOnce(15000);
     if (text?.trim()) deliverWakeText(text);

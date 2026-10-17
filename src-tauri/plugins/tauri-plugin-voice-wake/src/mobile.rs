@@ -94,6 +94,22 @@ impl<R: Runtime> VoiceWake<R> {
         Ok((resp.text, resp.error))
     }
 
+    /// 诊断：用内置模型识别一段测试录音。
+    pub fn test_recognition(&self, max_ms: u64) -> Result<(Option<String>, Option<String>)> {
+        #[derive(serde::Deserialize)]
+        struct TestResult {
+            #[serde(default)]
+            text: Option<String>,
+            #[serde(default)]
+            error: Option<String>,
+        }
+        let resp: TestResult = self
+            .handle
+            .run_mobile_plugin("testRecognition", serde_json::json!({ "maxMs": max_ms }))
+            .map_err(|e| Error::PluginInvoke(e.to_string()))?;
+        Ok((resp.text, resp.error))
+    }
+
     fn invoke<P, T>(&self, method: &str, payload: P) -> Result<T>
     where
         P: serde::Serialize,

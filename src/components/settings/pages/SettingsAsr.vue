@@ -107,7 +107,20 @@
         >
           {{ t("settings.asr.wake.openSettings") }}
         </button>
+        <button
+          type="button"
+          :disabled="wakeBusy"
+          class="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/80
+            transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+          @click="testLocalAsr"
+        >
+          {{ t("settings.asr.wake.testAsr") }}
+        </button>
       </div>
+
+      <p v-if="asrTestResult" class="mt-2 text-xs break-all text-gray-300">
+        {{ asrTestResult }}
+      </p>
 
       <p
         v-if="wakeMessage"
@@ -438,6 +451,7 @@
     voiceWakeRequestPermissions,
     voiceWakeSaveSettings,
     voiceWakeSetPaused,
+    voiceWakeTestRecognition,
     type VoiceWakeSettings,
     type VoiceWakeStatus,
   } from "@/api/services/voice-wake";
@@ -451,7 +465,7 @@
   const localSettings = ref<AsrSettings>(JSON.parse(JSON.stringify(asrStore.settings)));
   const lastTestResult = ref<{ ok: boolean; text: string } | null>(null);
   // 构建标识：用来确认手机上跑的是哪一版（排查"装了但没生效"）
-  const WAKE_BUILD_TAG = "2026-10-18-A1";
+  const WAKE_BUILD_TAG = "2026-10-19-A2";
   const wakeSettings = ref<VoiceWakeSettings>({
     enabled: false,
     phrase: "灵灵",
@@ -484,6 +498,7 @@
       ? new Date(wakeStatus.value.lastDetectionAt).toLocaleTimeString()
       : ""
   );
+  const asrTestResult = ref("");
 
   let saveTimer: number | null = null;
   /** 初始化完成标记：onMounted 赋值后置 true，跳过一次初始化触发的保存 */
@@ -630,6 +645,21 @@
       ackNotice.value = t("settings.asr.wake.ackFallback", { error: String(error) });
     } finally {
       if (paused) await voiceWakeSetPaused(false).catch(() => {});
+      wakeBusy.value = false;
+    }
+  }
+
+  /** 诊断：录音 5 秒，直接用内置模型识别，验证模型与麦克风链路。 */
+  async function testLocalAsr() {
+    if (wakeBusy.value) return;
+    wakeBusy.value = true;
+    asrTestResult.value = t("settings.asr.wake.asrTesting");
+    try {
+      const text = await voiceWakeTestRecognition();
+      asrTestResult.value = t("settings.asr.wake.asrTestResult", { text });
+    } catch (error) {
+      asrTestResult.value = t("settings.asr.wake.asrTestFailed", { error: String(error) });
+    } finally {
       wakeBusy.value = false;
     }
   }

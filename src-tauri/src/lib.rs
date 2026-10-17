@@ -925,6 +925,7 @@ pub fn run() {
             api::voice_wake::voice_wake_open_system_settings,
             api::voice_wake::voice_wake_take_pending_text,
             api::voice_wake::voice_wake_recognize_once,
+            api::voice_wake::voice_wake_test_recognition,
             exit_app,
         ])
         .run(context)

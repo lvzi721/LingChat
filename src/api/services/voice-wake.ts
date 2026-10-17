@@ -157,6 +157,9 @@ export async function voiceWakeTakePendingText(): Promise<string | null> {
 export const voiceWakeRecognizeOnce = (maxMs = 15000) =>
   invoke<string>("voice_wake_recognize_once", { maxMs });
 
+/** 诊断：录音约 5 秒用内置模型识别一次。 */
+export const voiceWakeTestRecognition = () => invoke<string>("voice_wake_test_recognition");
+
 export function onVoiceWakeDetected(handler: (event: VoiceWakeDetectedEvent) => void): () => void {
   detectedHandlers.add(handler);
   void ensureVoiceWakeListener().catch((error) => {
