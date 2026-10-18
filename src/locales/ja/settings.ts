@@ -1247,6 +1247,9 @@ export default {
       enableHint:
         "一度手動で有効にすると、サービスが残っているロック画面状態でローカル wake word から LingChat を呼び出せます。常駐通知とバックグラウンド権限が必要です。",
       phrase: "ローカル wake word",
+      phraseToggle: "Wake word を検出",
+      phraseToggleHint:
+        "オフにすると wake word の監視を停止しますが、フォアグラウンドサービスは継続するためヘッドセット長押しは使えます。",
       phrasePlaceholder: "例：灵灵",
       phraseHint:
         "変更後に保存して適用してください。ウェイクワードは内蔵のオフラインモデルで端末内判定し、中国語はピンインに変換されます。クラウドには送信しません。",

@@ -18,6 +18,9 @@ const DEFAULT_ACK_TEXT: &str = "我在";
 pub struct VoiceWakeSettings {
     pub enabled: bool,
     pub phrase: String,
+    /// 是否检测唤醒词；关闭后前台服务仍运行，耳机长按仍可唤醒。
+    #[serde(default = "default_ack_enabled")]
+    pub phrase_enabled: bool,
     /// 唤醒后是否先播一句应答，让用户确认已经收到唤醒词。
     #[serde(default = "default_ack_enabled")]
     pub ack_enabled: bool,
@@ -33,6 +36,7 @@ impl Default for VoiceWakeSettings {
         Self {
             enabled: false,
             phrase: DEFAULT_PHRASE.to_string(),
+            phrase_enabled: true,
             ack_enabled: true,
             ack_text: DEFAULT_ACK_TEXT.to_string(),
             ack_audio_path: None,
@@ -137,6 +141,7 @@ pub async fn voice_wake_save_settings(
         tauri_plugin_voice_wake::start(
             &app,
             &settings.phrase,
+            settings.phrase_enabled,
             settings.ack_enabled,
             &settings.ack_text,
             settings.ack_audio_path.as_deref(),
@@ -181,6 +186,7 @@ pub async fn voice_wake_ensure_started(app: AppHandle) -> Result<VoiceWakeStatus
     tauri_plugin_voice_wake::start(
         &app,
         &settings.phrase,
+        settings.phrase_enabled,
         settings.ack_enabled,
         &settings.ack_text,
         settings.ack_audio_path.as_deref(),

@@ -1267,6 +1267,9 @@ export default {
       enableHint:
         "After enabling once, LingChat can be invoked by a local wake word while the phone is locked and the service is still alive. A persistent notification and background permission are required.",
       phrase: "Local wake phrase",
+      phraseToggle: "Detect wake phrase",
+      phraseToggleHint:
+        "Turn off to stop wake-word listening; the foreground service keeps running so the headset long-press still works.",
       phrasePlaceholder: "For example: Ling Ling",
       phraseHint:
         "Save and apply after editing. The phrase is matched on-device by a bundled offline model; Chinese text is converted to pinyin and nothing is uploaded.",

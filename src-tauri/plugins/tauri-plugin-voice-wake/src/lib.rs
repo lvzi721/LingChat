@@ -18,6 +18,7 @@ pub use mobile::VoiceWake;
 pub fn start<R: Runtime>(
     app: &tauri::AppHandle<R>,
     phrase: &str,
+    phrase_enabled: bool,
     ack_enabled: bool,
     ack_text: &str,
     ack_audio_path: Option<&str>,
@@ -27,12 +28,12 @@ pub fn start<R: Runtime>(
         let state = app
             .try_state::<VoiceWake<R>>()
             .ok_or(Error::NotInitialized)?;
-        state.start(phrase, ack_enabled, ack_text, ack_audio_path)
+        state.start(phrase, phrase_enabled, ack_enabled, ack_text, ack_audio_path)
     }
     #[cfg(not(target_os = "android"))]
     {
         let _ = app;
-        desktop::start(phrase, ack_enabled, ack_text, ack_audio_path)
+        desktop::start(phrase, phrase_enabled, ack_enabled, ack_text, ack_audio_path)
     }
 }
 

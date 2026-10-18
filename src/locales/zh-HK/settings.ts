@@ -1222,6 +1222,8 @@ export default {
       enableHint:
         "手動開啟一次後，喺手機鎖屏而且服務未被系統清理時，可以用本地喚醒詞叫出 LingChat。需要保留常駐通知同後台權限。",
       phrase: "本地喚醒詞",
+      phraseToggle: "偵測喚醒詞",
+      phraseToggleHint: "關閉後唔再監聽喚醒詞，但前台服務會繼續運行，耳機長按照樣可用。",
       phrasePlaceholder: "例如：靈靈",
       phraseHint:
         "修改後撳保存並套用。喚醒詞喺手機本地用內置離線模型判斷，漢字會自動轉拼音，唔會上傳雲端。",

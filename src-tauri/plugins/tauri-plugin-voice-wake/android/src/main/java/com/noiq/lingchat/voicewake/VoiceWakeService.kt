@@ -54,11 +54,13 @@ class VoiceWakeService : Service() {
         private const val ACTION_PAUSE = "com.noiq.lingchat.voicewake.PAUSE"
         private const val ACTION_RESUME = "com.noiq.lingchat.voicewake.RESUME"
         private const val EXTRA_PHRASE = "phrase"
+        private const val EXTRA_PHRASE_ENABLED = "phraseEnabled"
         private const val EXTRA_ACK_ENABLED = "ackEnabled"
         private const val EXTRA_ACK_TEXT = "ackText"
         private const val EXTRA_ACK_AUDIO = "ackAudioPath"
         private const val PREFS_NAME = "voice_wake"
         private const val PREF_PHRASE = "phrase"
+        private const val PREF_PHRASE_ENABLED = "phraseEnabled"
         private const val PREF_ACK_ENABLED = "ackEnabled"
         private const val PREF_ACK_TEXT = "ackText"
         private const val PREF_ACK_AUDIO = "ackAudioPath"
@@ -95,6 +97,11 @@ class VoiceWakeService : Service() {
 
         @Volatile
         var currentPhrase: String = "灵灵"
+            private set
+
+        /** 是否检测唤醒词；关闭后服务与耳机键仍然可用。 */
+        @Volatile
+        var phraseEnabled: Boolean = true
             private set
 
         @Volatile
@@ -172,6 +179,7 @@ class VoiceWakeService : Service() {
         fun start(
             context: Context,
             phrase: String,
+            phraseOn: Boolean,
             ackOn: Boolean,
             ackLine: String,
             ackAudio: String?,
@@ -182,6 +190,7 @@ class VoiceWakeService : Service() {
                 val intent = Intent(context, VoiceWakeService::class.java)
                     .setAction(ACTION_START)
                     .putExtra(EXTRA_PHRASE, phrase)
+                    .putExtra(EXTRA_PHRASE_ENABLED, phraseOn)
                     .putExtra(EXTRA_ACK_ENABLED, ackOn)
                     .putExtra(EXTRA_ACK_TEXT, ackLine)
                     .putExtra(EXTRA_ACK_AUDIO, ackAudio)
@@ -234,6 +243,7 @@ class VoiceWakeService : Service() {
         modelPresent = detectModelPresent(this)
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         currentPhrase = prefs.getString(PREF_PHRASE, currentPhrase).orEmpty().ifBlank { "灵灵" }
+        phraseEnabled = prefs.getBoolean(PREF_PHRASE_ENABLED, true)
         ackEnabled = prefs.getBoolean(PREF_ACK_ENABLED, true)
         ackText = prefs.getString(PREF_ACK_TEXT, ackText).orEmpty().ifBlank { "我在" }
         ackAudioPath = prefs.getString(PREF_ACK_AUDIO, null)?.takeIf { it.isNotBlank() }
@@ -261,6 +271,7 @@ class VoiceWakeService : Service() {
             }
             ACTION_START -> {
                 val phrase = intent.getStringExtra(EXTRA_PHRASE).orEmpty().trim()
+                val phraseOn = intent.getBooleanExtra(EXTRA_PHRASE_ENABLED, phraseEnabled)
                 val ackOn = intent.getBooleanExtra(EXTRA_ACK_ENABLED, ackEnabled)
                 val ackLine = intent.getStringExtra(EXTRA_ACK_TEXT).orEmpty().trim()
                 val ackAudio = intent.getStringExtra(EXTRA_ACK_AUDIO)?.takeIf { it.isNotBlank() }
@@ -268,11 +279,13 @@ class VoiceWakeService : Service() {
                     currentPhrase = phrase
                 }
                 ackEnabled = ackOn
+                phraseEnabled = phraseOn
                 if (ackLine.isNotBlank()) ackText = ackLine
                 ackAudioPath = ackAudio
                 getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
                     .edit()
                     .putString(PREF_PHRASE, currentPhrase)
+                    .putBoolean(PREF_PHRASE_ENABLED, phraseEnabled)
                     .putBoolean(PREF_ACK_ENABLED, ackEnabled)
                     .putString(PREF_ACK_TEXT, ackText)
                     .putString(PREF_ACK_AUDIO, ackAudioPath)
@@ -280,11 +293,16 @@ class VoiceWakeService : Service() {
                 if (ackEnabled) ensureAckEngine()
                 isSuspended = false
                 cancelFallbackResume()
-                startListening()
+                if (phraseEnabled) {
+                    startListening()
+                } else {
+                    requestStop()
+                    updateNotification("耳机键唤醒已就绪（唤醒词已关闭）")
+                }
                 return START_STICKY
             }
         }
-        if (!isSuspended) startListening()
+        if (!isSuspended && phraseEnabled) startListening()
         return START_STICKY
     }
 
@@ -407,6 +425,10 @@ class VoiceWakeService : Service() {
     // ── 监听生命周期 ────────────────────────────────────────────
 
     private fun startListening() {
+        if (!phraseEnabled) {
+            updateNotification("耳机键唤醒已就绪（唤醒词已关闭）")
+            return
+        }
         if (listening) return
         val previous = listenThread
         if (previous != null && previous.isAlive && previous !== Thread.currentThread()) {

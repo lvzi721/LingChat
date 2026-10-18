@@ -5,6 +5,7 @@ import { isAndroid } from "@/utils/platform";
 export interface VoiceWakeSettings {
   enabled: boolean;
   phrase: string;
+  phraseEnabled: boolean;
   ackEnabled: boolean;
   ackText: string;
   ackAudioPath?: string | null;
@@ -43,6 +44,7 @@ export interface VoiceWakeRecognizedEvent {
 const DEFAULT_SETTINGS: VoiceWakeSettings = {
   enabled: false,
   phrase: "灵灵",
+  phraseEnabled: true,
   ackEnabled: true,
   ackText: "我在",
   ackAudioPath: null,

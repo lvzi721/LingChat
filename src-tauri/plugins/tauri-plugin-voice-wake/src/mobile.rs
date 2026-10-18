@@ -25,6 +25,7 @@ impl<R: Runtime> VoiceWake<R> {
     pub fn start(
         &self,
         phrase: &str,
+        phrase_enabled: bool,
         ack_enabled: bool,
         ack_text: &str,
         ack_audio_path: Option<&str>,
@@ -33,6 +34,7 @@ impl<R: Runtime> VoiceWake<R> {
             "start",
             StartRequest {
                 phrase: phrase.to_string(),
+                phrase_enabled,
                 ack_enabled,
                 ack_text: ack_text.to_string(),
                 ack_audio_path: ack_audio_path.map(str::to_string),
