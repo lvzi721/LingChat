@@ -14,13 +14,17 @@ import android.media.AudioAttributes
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.media.MediaPlayer
+import android.media.session.MediaSession
+import android.media.session.PlaybackState
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.view.KeyEvent
 import app.tauri.plugin.JSObject
 import com.k2fsa.sherpa.onnx.FeatureConfig
 import com.k2fsa.sherpa.onnx.KeywordSpotter
@@ -69,6 +73,7 @@ class VoiceWakeService : Service() {
         private const val MAX_COMMAND_MS = 10_000L
         private const val FALLBACK_RESUME_MS = 90_000L
         private const val ACK_TIMEOUT_MS = 2_500L
+        private const val MEDIA_LONG_PRESS_MS = 600L
 
         private const val ENCODER = "encoder-epoch-12-avg-2-chunk-16-left-64.onnx"
         private const val DECODER = "decoder-epoch-12-avg-2-chunk-16-left-64.onnx"
@@ -220,6 +225,8 @@ class VoiceWakeService : Service() {
     private var fallbackResume: Runnable? = null
     private var tts: TextToSpeech? = null
     private var ttsReady = false
+    private var mediaSession: MediaSession? = null
+    private var mediaKeyDownAt = 0L
 
     override fun onCreate() {
         super.onCreate()
@@ -234,6 +241,7 @@ class VoiceWakeService : Service() {
         createNotificationChannel()
         startForegroundCompat(buildNotification("准备中"))
         acquireWakeLock()
+        setupMediaSession()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -309,11 +317,92 @@ class VoiceWakeService : Service() {
         }
         tts = null
         ttsReady = false
+        try {
+            mediaSession?.isActive = false
+            mediaSession?.release()
+        } catch (_: Throwable) {
+            // ignore
+        }
+        mediaSession = null
         releaseWakeLock()
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    // ── 耳机媒体键 ──────────────────────────────────────────────
+
+    /**
+     * 注册一个常驻 MediaSession，让蓝牙耳机的播放/暂停键优先送到 LingChat。
+     *
+     * 只消费「长按约 0.6 秒」：短按返回 false 交回系统，尽量不影响正常播放控制。
+     * 代价是开启唤醒模式期间，耳机播放键的归属会变成 LingChat。
+     */
+    private fun setupMediaSession() {
+        if (mediaSession != null) return
+        val session = MediaSession(this, "LingChatWake")
+        session.setFlags(
+            MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or
+                MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS,
+        )
+        session.setCallback(
+            object : MediaSession.Callback() {
+                override fun onMediaButtonEvent(mediaButtonIntent: Intent): Boolean {
+                    val event =
+                        mediaButtonIntent.getParcelableExtra<KeyEvent>(Intent.EXTRA_KEY_EVENT)
+                    return handleMediaKey(event)
+                }
+            },
+        )
+        session.setPlaybackState(
+            PlaybackState.Builder()
+                .setActions(
+                    PlaybackState.ACTION_PLAY or
+                        PlaybackState.ACTION_PAUSE or
+                        PlaybackState.ACTION_PLAY_PAUSE,
+                )
+                .setState(PlaybackState.STATE_PLAYING, 0L, 1f)
+                .build(),
+        )
+        session.isActive = true
+        mediaSession = session
+    }
+
+    private fun handleMediaKey(event: KeyEvent?): Boolean {
+        if (event == null) return false
+        when (event.keyCode) {
+            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+            KeyEvent.KEYCODE_HEADSETHOOK,
+            KeyEvent.KEYCODE_MEDIA_NEXT,
+            KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+            -> Unit
+            else -> return false
+        }
+
+        when (event.action) {
+            KeyEvent.ACTION_DOWN -> {
+                mediaKeyDownAt = SystemClock.elapsedRealtime()
+                return false
+            }
+            KeyEvent.ACTION_UP -> {
+                val held = SystemClock.elapsedRealtime() - mediaKeyDownAt
+                mediaKeyDownAt = 0L
+                if (held >= MEDIA_LONG_PRESS_MS) {
+                    triggerByMediaKey()
+                    return true
+                }
+                return false
+            }
+        }
+        return false
+    }
+
+    /** 耳机长按：释放 KWS 麦克风后走与唤醒词相同的「应答 + 本地识别」流程。 */
+    private fun triggerByMediaKey() {
+        if (!isRunning) return
+        requestStop()
+        mainHandler.post { onKeywordDetected("耳机键") }
+    }
 
     // ── 监听生命周期 ────────────────────────────────────────────
 

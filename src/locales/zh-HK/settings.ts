@@ -1236,6 +1236,8 @@ export default {
       ackMissing: "未生成，撳「保存並套用」",
       ackPreview: "試聽應答",
       lastWake: "最近喚醒",
+      mediaKeyHint:
+        "開啟後，藍牙耳機播放鍵長按約 0.6 秒即可叫出 LingChat；短按仍然交給系統播放控制。注意：開啟期間耳機播放/暫停鍵會優先歸 LingChat。",
       localAsr: "本地指令識別",
       testAsr: "測試本地識別",
       asrTesting: "正在錄音 5 秒，請講一句嘢…",

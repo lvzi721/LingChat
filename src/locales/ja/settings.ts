@@ -1262,6 +1262,8 @@ export default {
       ackMissing: "未生成（「保存して適用」を押してください）",
       ackPreview: "応答を試聴",
       lastWake: "最終ウェイク",
+      mediaKeyHint:
+        "ヘッドセットの再生キーを約 0.6 秒長押しすると LingChat を呼び出せます。短押しはシステムに渡ります。有効中は再生キーが LingChat に優先されます。",
       localAsr: "端末内コマンド認識",
       testAsr: "端末内認識をテスト",
       asrTesting: "5 秒間録音します。話してください…",
