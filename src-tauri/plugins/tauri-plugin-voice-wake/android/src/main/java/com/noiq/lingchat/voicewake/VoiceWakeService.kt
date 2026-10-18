@@ -236,6 +236,7 @@ class VoiceWakeService : Service() {
     private var ttsReady = false
     private var mediaSession: MediaSession? = null
     private var mediaKeyDownAt = 0L
+    private var mediaLastDownAt = 0L
 
     override fun onCreate() {
         super.onCreate()
@@ -397,15 +398,28 @@ class VoiceWakeService : Service() {
             else -> return false
         }
 
+        // 诊断：收到任何媒体键都写进通知，便于确认耳机是否真的把按键发给了手机。
+        updateNotification("收到媒体键 ${event.keyCode}")
+
         when (event.action) {
             KeyEvent.ACTION_DOWN -> {
-                mediaKeyDownAt = SystemClock.elapsedRealtime()
+                val now = SystemClock.elapsedRealtime()
+                // 双击：蓝牙耳机多按"点击"上报，不传按住时长，因此双击更可靠。
+                if (mediaLastDownAt > 0L && now - mediaLastDownAt <= 600L) {
+                    mediaLastDownAt = 0L
+                    mediaKeyDownAt = 0L
+                    triggerByMediaKey()
+                    return true
+                }
+                mediaLastDownAt = now
+                mediaKeyDownAt = now
                 return false
             }
             KeyEvent.ACTION_UP -> {
                 val held = SystemClock.elapsedRealtime() - mediaKeyDownAt
                 mediaKeyDownAt = 0L
                 if (held >= MEDIA_LONG_PRESS_MS) {
+                    mediaLastDownAt = 0L
                     triggerByMediaKey()
                     return true
                 }
