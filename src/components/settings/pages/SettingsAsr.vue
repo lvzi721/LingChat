@@ -465,7 +465,7 @@
   const localSettings = ref<AsrSettings>(JSON.parse(JSON.stringify(asrStore.settings)));
   const lastTestResult = ref<{ ok: boolean; text: string } | null>(null);
   // 构建标识：用来确认手机上跑的是哪一版（排查"装了但没生效"）
-  const WAKE_BUILD_TAG = "2026-10-18-A5";
+  const WAKE_BUILD_TAG = "2026-10-18-A6";
   const wakeSettings = ref<VoiceWakeSettings>({
     enabled: false,
     phrase: "灵灵",

@@ -451,9 +451,15 @@ class VoiceWakeService : Service() {
         // 但用户仍然需要听到"我在"这一声确认。
         playAck {
             Thread({
+                // 应答刚播完，先让音频路由从播放切回采集（蓝牙耳机尤其明显）。
+                try {
+                    Thread.sleep(250)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                }
                 // 与「测试本地识别」共用同一实现，避免两条路径行为不一致。
                 val (spoken, error) = LocalAsr.recognize(applicationContext, MAX_COMMAND_MS)
-                if (!error.isNullOrBlank()) lastError = error
+                lastError = error?.takeIf { it.isNotBlank() }
                 mainHandler.post { finishCommand(text, spoken) }
             }, "voice-wake-asr").start()
         }
@@ -485,26 +491,30 @@ class VoiceWakeService : Service() {
             return
         }
 
-        if (!VoiceWakeEventBridge.hasListener("detected")) {
-            isSuspended = false
-            updateNotification(lastError?.let { "未识别到语音（$it），继续监听" } ?: "未识别到语音，继续监听")
-            startListening()
+        val error = lastError ?: "asr_empty"
+
+        // 只有「模型缺失」才回落到前端录音识别；锁屏下前端本来就不可用，
+        // 其余失败一律写明原因并继续监听，避免界面被"唤醒暂停"覆盖。
+        if (error == "asr_model_missing" && VoiceWakeEventBridge.hasListener("detected")) {
+            isSuspended = true
+            cancelFallbackResume()
+            updateNotification("本地模型缺失，改由界面识别")
+            VoiceWakeEventBridge.emit(
+                "detected",
+                JSObject().apply {
+                    put("phrase", currentPhrase)
+                    put("transcript", wakePhrase)
+                    put("timestamp", lastDetectionAt)
+                    put("serial", lastDetectionSerial)
+                },
+            )
+            scheduleFallbackResume()
             return
         }
 
-        isSuspended = true
-        cancelFallbackResume()
-        updateNotification("已唤醒，等待 LingChat 接收")
-        VoiceWakeEventBridge.emit(
-            "detected",
-            JSObject().apply {
-                put("phrase", currentPhrase)
-                put("transcript", wakePhrase)
-                put("timestamp", lastDetectionAt)
-                put("serial", lastDetectionSerial)
-            },
-        )
-        scheduleFallbackResume()
+        isSuspended = false
+        updateNotification("未识别到语音（$error），继续监听")
+        startListening()
     }
 
     /**
