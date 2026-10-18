@@ -1286,7 +1286,7 @@ export default {
       ackPreview: "试听应答",
       lastWake: "最近唤醒",
       mediaKeyHint:
-        "开启后，蓝牙耳机播放键长按约 0.6 秒即可呼出 LingChat；短按仍交给系统播放控制。注意：开启期间耳机的播放/暂停键会优先归 LingChat。",
+        "开启后，单击蓝牙耳机播放键即可呼出 LingChat（应答 + 本地识别）。注意：开启期间耳机的播放/暂停键会归 LingChat，音乐 App 收不到。",
       localAsr: "本地指令识别",
       testAsr: "测试本地识别",
       asrTesting: "正在录音 5 秒，请说一句话…",

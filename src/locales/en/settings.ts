@@ -1287,7 +1287,7 @@ export default {
       ackPreview: "Preview acknowledgement",
       lastWake: "Last wake",
       mediaKeyHint:
-        "Hold the headset play/pause button for about 0.6s to invoke LingChat. Short presses still go to the system. While enabled, the headset play/pause key is routed to LingChat first.",
+        "Press the headset play/pause button once to invoke LingChat (acknowledgement + on-device recognition). While enabled, music apps no longer receive that key.",
       localAsr: "On-device command ASR",
       testAsr: "Test on-device ASR",
       asrTesting: "Recording for 5 seconds, say something...",

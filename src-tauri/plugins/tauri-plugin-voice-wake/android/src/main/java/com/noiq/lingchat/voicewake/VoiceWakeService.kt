@@ -403,27 +403,15 @@ class VoiceWakeService : Service() {
 
         when (event.action) {
             KeyEvent.ACTION_DOWN -> {
-                val now = SystemClock.elapsedRealtime()
-                // 双击：蓝牙耳机多按"点击"上报，不传按住时长，因此双击更可靠。
-                if (mediaLastDownAt > 0L && now - mediaLastDownAt <= 600L) {
-                    mediaLastDownAt = 0L
-                    mediaKeyDownAt = 0L
-                    triggerByMediaKey()
-                    return true
-                }
-                mediaLastDownAt = now
-                mediaKeyDownAt = now
-                return false
+                // 蓝牙耳机通常只上报"一次点击"，不传按住时长，因此单击即触发。
+                mediaKeyDownAt = SystemClock.elapsedRealtime()
+                mediaLastDownAt = mediaKeyDownAt
+                return true
             }
             KeyEvent.ACTION_UP -> {
-                val held = SystemClock.elapsedRealtime() - mediaKeyDownAt
                 mediaKeyDownAt = 0L
-                if (held >= MEDIA_LONG_PRESS_MS) {
-                    mediaLastDownAt = 0L
-                    triggerByMediaKey()
-                    return true
-                }
-                return false
+                triggerByMediaKey()
+                return true
             }
         }
         return false
