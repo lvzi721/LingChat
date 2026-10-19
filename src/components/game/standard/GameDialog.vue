@@ -796,6 +796,9 @@
   let unlistenCancelled: (() => void) | null = null;
 
   onMounted(async () => {
+    // 聊天界面就绪后取一次锁屏期间暂存的识别结果（可能已落盘）
+    asrInput.drainPendingWakeText();
+
     // 模式切换重挂载：立即从 store 恢复当前台词（不重播打字动画）
     const restoreLine = uiStore.showCharacterLine;
     if (restoreLine && restoreLine !== "" && gameStore.currentStatus === "responding") {

@@ -1288,6 +1288,8 @@ export default {
       lastWake: "Last wake",
       mediaKeyHint:
         "Press the headset play/pause button once to invoke LingChat (acknowledgement + on-device recognition). While enabled, music apps no longer receive that key.",
+      tileHint:
+        'You can also add the "LingChat Voice" Quick Settings tile; it works even when another app is in the foreground.',
       localAsr: "On-device command ASR",
       testAsr: "Test on-device ASR",
       asrTesting: "Recording for 5 seconds, say something...",

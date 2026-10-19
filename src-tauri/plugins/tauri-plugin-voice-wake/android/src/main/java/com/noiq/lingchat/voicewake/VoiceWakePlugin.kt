@@ -81,7 +81,9 @@ class VoiceWakePlugin(private val hostActivity: Activity) : Plugin(hostActivity)
     @Command
     fun takePendingText(invoke: Invoke) {
         val out = JSObject()
-        VoiceWakeService.takePendingText()?.takeIf { it.isNotBlank() }?.let { out.put("text", it) }
+        VoiceWakeService.takePendingText(hostActivity)?.takeIf { it.isNotBlank() }?.let {
+            out.put("text", it)
+        }
         invoke.resolve(out)
     }
 

@@ -151,11 +151,38 @@ function resetSession() {
 function deliverWakeText(text: string): void {
   const trimmed = text.trim();
   if (!trimmed) return;
+  // 当前不在聊天页：先存起来，等 GameDialog 挂载后再回填。
+  if (!chatActive.value) {
+    try {
+      localStorage.setItem("lingchat:pendingWakeText", trimmed);
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
   const mode = asrStore?.settings.send_mode ?? "fill_only";
   if (mode === "fill_only") {
     window.dispatchEvent(new CustomEvent("asr-text", { detail: trimmed }));
   } else {
     window.dispatchEvent(new CustomEvent("asr-send", { detail: trimmed }));
+  }
+}
+
+/** 取走原生服务暂存的识别结果（含落盘兜底），并派发到聊天界面。 */
+export function drainPendingWakeText(): void {
+  void voiceWakeTakePendingText()
+    .then((text) => {
+      if (text) deliverWakeText(text);
+    })
+    .catch(() => {});
+  try {
+    const stored = localStorage.getItem("lingchat:pendingWakeText");
+    if (stored) {
+      localStorage.removeItem("lingchat:pendingWakeText");
+      deliverWakeText(stored);
+    }
+  } catch {
+    /* ignore */
   }
 }
 
@@ -804,15 +831,14 @@ function ensureInit() {
   onVoiceWakeRecognized((event) => deliverWakeText(event.text ?? ""));
 
   // 锁屏时界面可能被回收，识别结果会暂存在服务里；界面恢复后补发。
-  const drainPendingWakeText = () => {
-    void voiceWakeTakePendingText()
-      .then((text) => {
-        if (text) deliverWakeText(text);
-      })
-      .catch(() => {});
-  };
   drainPendingWakeText();
   window.addEventListener("focus", drainPendingWakeText);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") drainPendingWakeText();
+  });
+  window.setInterval(() => {
+    if (document.visibilityState === "visible") drainPendingWakeText();
+  }, 3000);
 
   // 已在设置中启用的用户，应用一启动就恢复锁屏监听服务。
   void voiceWakeEnsureStarted().catch((error) => {
@@ -927,6 +953,7 @@ export function useAsrInput() {
     canStartAsr,
     autoListenActive,
     nativeAsrReady,
+    drainPendingWakeText,
     toggleAutoListenFunction,
   };
 }

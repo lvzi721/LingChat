@@ -13,6 +13,18 @@
             android:exported="false"
             android:foregroundServiceType="microphone"
             android:stopWithTask="false" />
+
+        <service
+            android:name=".VoiceWakeTileService"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@android:drawable/ic_btn_speak_now"
+            android:label="LingChat 语音"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>
 

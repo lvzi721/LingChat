@@ -5,12 +5,16 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.media.AudioFormat
 import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.media.MediaPlayer
@@ -53,6 +57,7 @@ class VoiceWakeService : Service() {
         private const val ACTION_STOP = "com.noiq.lingchat.voicewake.STOP"
         private const val ACTION_PAUSE = "com.noiq.lingchat.voicewake.PAUSE"
         private const val ACTION_RESUME = "com.noiq.lingchat.voicewake.RESUME"
+        const val ACTION_WAKE = "com.noiq.lingchat.voicewake.WAKE"
         private const val EXTRA_PHRASE = "phrase"
         private const val EXTRA_PHRASE_ENABLED = "phraseEnabled"
         private const val EXTRA_ACK_ENABLED = "ackEnabled"
@@ -64,6 +69,7 @@ class VoiceWakeService : Service() {
         private const val PREF_ACK_ENABLED = "ackEnabled"
         private const val PREF_ACK_TEXT = "ackText"
         private const val PREF_ACK_AUDIO = "ackAudioPath"
+        private const val PREF_PENDING_TEXT = "pendingText"
         private const val ASSET_DIR = "kws"
         private const val MODEL_DIR = "kws"
         private const val ASR_ASSET_DIR = "asr"
@@ -154,10 +160,13 @@ class VoiceWakeService : Service() {
         var pendingText: String? = null
             private set
 
-        fun takePendingText(): String? {
-            val text = pendingText
+        fun takePendingText(context: Context): String? {
+            val memory = pendingText
             pendingText = null
-            return text
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val stored = prefs.getString(PREF_PENDING_TEXT, null)
+            if (stored != null) prefs.edit().remove(PREF_PENDING_TEXT).apply()
+            return memory ?: stored
         }
 
         /** APK 内是否打进了指令识别模型。 */
@@ -237,6 +246,10 @@ class VoiceWakeService : Service() {
     private var mediaSession: MediaSession? = null
     private var mediaKeyDownAt = 0L
     private var mediaLastDownAt = 0L
+    private var ackPlayer: MediaPlayer? = null
+    private var audioManager: AudioManager? = null
+    private var focusRequest: AudioFocusRequest? = null
+    private var screenReceiver: BroadcastReceiver? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -253,10 +266,15 @@ class VoiceWakeService : Service() {
         startForegroundCompat(buildNotification("准备中"))
         acquireWakeLock()
         setupMediaSession()
+        registerScreenReceiver()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
+            ACTION_WAKE -> {
+                triggerByMediaKey()
+                return START_STICKY
+            }
             ACTION_STOP -> {
                 stopSelf()
                 return START_NOT_STICKY
@@ -343,6 +361,14 @@ class VoiceWakeService : Service() {
             // ignore
         }
         mediaSession = null
+        releaseAckPlayer()
+        abandonAckFocus()
+        try {
+            screenReceiver?.let { unregisterReceiver(it) }
+        } catch (_: Throwable) {
+            // ignore
+        }
+        screenReceiver = null
         releaseWakeLock()
         super.onDestroy()
     }
@@ -422,6 +448,109 @@ class VoiceWakeService : Service() {
         if (!isRunning) return
         requestStop()
         mainHandler.post { onKeywordDetected("耳机键") }
+    }
+
+    /** 屏幕亮/灭时重新抢占媒体会话，尽量从刚播放过视频/音乐的 App 手里拿回按键。 */
+    private fun registerScreenReceiver() {
+        if (screenReceiver != null) return
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                refreshMediaSession()
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                @Suppress("DEPRECATION")
+                registerReceiver(receiver, filter)
+            }
+            screenReceiver = receiver
+        } catch (_: Throwable) {
+            screenReceiver = null
+        }
+    }
+
+    private fun refreshMediaSession() {
+        val session = mediaSession ?: return
+        try {
+            session.isActive = false
+            session.isActive = true
+            session.setPlaybackState(playbackState())
+        } catch (_: Throwable) {
+            // ignore
+        }
+    }
+
+    private fun playbackState(): PlaybackState =
+        PlaybackState.Builder()
+            .setActions(
+                PlaybackState.ACTION_PLAY or
+                    PlaybackState.ACTION_PAUSE or
+                    PlaybackState.ACTION_PLAY_PAUSE,
+            )
+            .setState(PlaybackState.STATE_PLAYING, 1L, 1f)
+            .build()
+
+    // ── 应答播放的音频焦点 ──────────────────────────────────────
+
+    private fun requestAckFocus() {
+        val manager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager = manager
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val attributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+                val request = AudioFocusRequest.Builder(
+                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE,
+                )
+                    .setAudioAttributes(attributes)
+                    .setOnAudioFocusChangeListener { }
+                    .build()
+                focusRequest = request
+                manager.requestAudioFocus(request)
+            } else {
+                @Suppress("DEPRECATION")
+                manager.requestAudioFocus(
+                    null,
+                    AudioManager.STREAM_MUSIC,
+                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE,
+                )
+            }
+        } catch (_: Throwable) {
+            // 焦点申请失败不影响播放
+        }
+    }
+
+    private fun abandonAckFocus() {
+        val manager = audioManager ?: return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                focusRequest?.let { manager.abandonAudioFocusRequest(it) }
+            } else {
+                @Suppress("DEPRECATION")
+                manager.abandonAudioFocus(null)
+            }
+        } catch (_: Throwable) {
+            // ignore
+        }
+        focusRequest = null
+    }
+
+    private fun releaseAckPlayer() {
+        val player = ackPlayer
+        ackPlayer = null
+        try {
+            player?.release()
+        } catch (_: Throwable) {
+            // ignore
+        }
     }
 
     // ── 监听生命周期 ────────────────────────────────────────────
@@ -598,6 +727,11 @@ class VoiceWakeService : Service() {
                 )
             } else {
                 pendingText = spoken
+                // 落盘：进程被系统回收后，文字仍然能在下次打开应用时补发。
+                getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                    .edit()
+                    .putString(PREF_PENDING_TEXT, spoken)
+                    .apply()
             }
             isSuspended = false
             startListening()
@@ -642,6 +776,7 @@ class VoiceWakeService : Service() {
         val finished = AtomicBoolean(false)
         val finish = {
             if (finished.compareAndSet(false, true)) {
+                abandonAckFocus()
                 mainHandler.post(then)
             }
         }
@@ -651,15 +786,19 @@ class VoiceWakeService : Service() {
             val file = File(path)
             if (file.isFile && file.length() > 0L) {
                 try {
+                    releaseAckPlayer()
+                    requestAckFocus()
                     val player = MediaPlayer()
                     player.setAudioAttributes(
                         AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_ASSISTANT)
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
                             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                             .build(),
                     )
+                    ackPlayer = player
                     player.setDataSource(path)
                     player.setOnCompletionListener { p ->
+                        if (ackPlayer === p) ackPlayer = null
                         try {
                             p.release()
                         } catch (_: Throwable) {
@@ -668,6 +807,7 @@ class VoiceWakeService : Service() {
                         finish()
                     }
                     player.setOnErrorListener { p, _, _ ->
+                        if (ackPlayer === p) ackPlayer = null
                         try {
                             p.release()
                         } catch (_: Throwable) {
@@ -678,10 +818,26 @@ class VoiceWakeService : Service() {
                     }
                     player.prepare()
                     player.start()
-                    // 兜底：个别机型 onCompletion 不回调，避免永久卡住唤醒流程
-                    mainHandler.postDelayed(finish, 8_000L)
+                    // 兜底：个别机型 onCompletion 不回调。仍在播放就顺延，避免截断应答。
+                    val guard = object : Runnable {
+                        override fun run() {
+                            val current = ackPlayer
+                            val playing = try {
+                                current?.isPlaying == true
+                            } catch (_: Throwable) {
+                                false
+                            }
+                            if (playing) {
+                                mainHandler.postDelayed(this, 3_000L)
+                            } else {
+                                finish()
+                            }
+                        }
+                    }
+                    mainHandler.postDelayed(guard, 8_000L)
                     return
                 } catch (_: Throwable) {
+                    releaseAckPlayer()
                     // 落到系统 TTS
                 }
             }
@@ -958,6 +1114,12 @@ class VoiceWakeService : Service() {
             Intent(this, VoiceWakeService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val talkIntent = PendingIntent.getService(
+            this,
+            2,
+            Intent(this, VoiceWakeService::class.java).setAction(ACTION_WAKE),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)
         } else {
@@ -976,6 +1138,13 @@ class VoiceWakeService : Service() {
                     android.R.drawable.ic_btn_speak_now,
                     "停止",
                     stopIntent,
+                ).build(),
+            )
+            .addAction(
+                Notification.Action.Builder(
+                    android.R.drawable.ic_btn_speak_now,
+                    "说话",
+                    talkIntent,
                 ).build(),
             )
         if (contentIntent != null) builder.setContentIntent(contentIntent)

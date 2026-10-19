@@ -1267,6 +1267,8 @@ export default {
       lastWake: "最終ウェイク",
       mediaKeyHint:
         "ヘッドセットの再生キーを 1 回押すと LingChat を呼び出せます。有効中は音楽アプリにこのキーは渡りません。",
+      tileHint:
+        "クイック設定に「LingChat 音声」タイルを追加すると、他のアプリが前面でもワンタップで呼び出せます。",
       localAsr: "端末内コマンド認識",
       testAsr: "端末内認識をテスト",
       asrTesting: "5 秒間録音します。話してください…",

@@ -1287,6 +1287,7 @@ export default {
       lastWake: "最近唤醒",
       mediaKeyHint:
         "开启后，单击蓝牙耳机播放键即可呼出 LingChat（应答 + 本地识别）。注意：开启期间耳机的播放/暂停键会归 LingChat，音乐 App 收不到。",
+      tileHint: "也可以在通知栏编辑里添加「LingChat 语音」磁贴，任何应用在前台时都能一键唤醒。",
       localAsr: "本地指令识别",
       testAsr: "测试本地识别",
       asrTesting: "正在录音 5 秒，请说一句话…",
