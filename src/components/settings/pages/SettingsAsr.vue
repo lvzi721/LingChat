@@ -231,6 +231,34 @@
         </div>
       </div>
       <p class="mt-3 text-xs text-gray-400">{{ t("settings.asr.wake.huaweiHint") }}</p>
+
+      <div class="mt-3 border-t border-white/10 pt-3 text-xs text-gray-400">
+        <div class="flex items-center justify-between">
+          <span class="font-medium">{{ t("settings.asr.wake.diagnostics") }}</span>
+          <button
+            type="button"
+            class="rounded border border-white/15 px-2 py-0.5 text-xs text-white/70
+              transition-colors hover:bg-white/10"
+            @click="refreshWakeStatus"
+          >
+            {{ t("settings.asr.wake.refresh") }}
+          </button>
+        </div>
+        <div class="mt-1 break-all">
+          {{ t("settings.asr.wake.pendingText") }}: {{ wakeStatus.pendingText || "—" }}
+        </div>
+        <div class="break-all">
+          {{ t("settings.asr.wake.ackAudio") }}:
+          {{
+            wakeStatus.ackAudioReady
+              ? t("settings.asr.wake.ackReady")
+              : t("settings.asr.wake.ackMissing")
+          }}
+        </div>
+        <div v-if="wakeStatus.ackAudioPath" class="mt-0.5 text-[11px] break-all text-gray-500">
+          {{ wakeStatus.ackAudioPath }}
+        </div>
+      </div>
     </section>
 
     <!-- 自动语音识别开关 -->
@@ -480,7 +508,7 @@
   const localSettings = ref<AsrSettings>(JSON.parse(JSON.stringify(asrStore.settings)));
   const lastTestResult = ref<{ ok: boolean; text: string } | null>(null);
   // 构建标识：用来确认手机上跑的是哪一版（排查"装了但没生效"）
-  const WAKE_BUILD_TAG = "2026-10-19-B1";
+  const WAKE_BUILD_TAG = "2026-10-20-B2";
   const wakeSettings = ref<VoiceWakeSettings>({
     enabled: false,
     phrase: "灵灵",
@@ -501,6 +529,9 @@
     suspended: false,
     phrase: "灵灵",
     keywordTokens: null,
+    pendingText: null,
+    ackAudioPath: null,
+    ackAudioReady: false,
     lastDetectionSerial: 0,
     lastDetectionAt: 0,
     lastDetectionTranscript: null,

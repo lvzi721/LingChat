@@ -1286,6 +1286,10 @@ export default {
       ackMissing: "Not generated - tap Save and apply",
       ackPreview: "Preview acknowledgement",
       lastWake: "Last wake",
+      diagnostics: "Wake diagnostics",
+      refresh: "Refresh",
+      pendingText: "Pending text",
+      ackAudio: "Acknowledgement audio",
       mediaKeyHint:
         "Press the headset play/pause button once to invoke LingChat (acknowledgement + on-device recognition). While enabled, music apps no longer receive that key.",
       tileHint:

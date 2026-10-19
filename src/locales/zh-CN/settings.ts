@@ -1285,6 +1285,10 @@ export default {
       ackMissing: "未生成，请点“保存并应用”",
       ackPreview: "试听应答",
       lastWake: "最近唤醒",
+      diagnostics: "唤醒诊断",
+      refresh: "刷新",
+      pendingText: "待补发文字",
+      ackAudio: "应答音频",
       mediaKeyHint:
         "开启后，单击蓝牙耳机播放键即可呼出 LingChat（应答 + 本地识别）。注意：开启期间耳机的播放/暂停键会归 LingChat，音乐 App 收不到。",
       tileHint: "也可以在通知栏编辑里添加「LingChat 语音」磁贴，任何应用在前台时都能一键唤醒。",

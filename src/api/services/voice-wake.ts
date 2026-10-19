@@ -22,6 +22,9 @@ export interface VoiceWakeStatus {
   suspended: boolean;
   phrase: string;
   keywordTokens?: string | null;
+  pendingText?: string | null;
+  ackAudioPath?: string | null;
+  ackAudioReady: boolean;
   lastDetectionSerial: number;
   lastDetectionAt: number;
   lastDetectionTranscript?: string | null;

@@ -169,6 +169,12 @@ class VoiceWakeService : Service() {
             return memory ?: stored
         }
 
+        /** 诊断用：应答音频缓存是否真实存在。 */
+        fun isAckAudioReady(): Boolean {
+            val path = ackAudioPath ?: return false
+            return File(path).let { it.isFile && it.length() > 0L }
+        }
+
         /** APK 内是否打进了指令识别模型。 */
         fun detectAsrPresent(context: Context): Boolean =
             try {

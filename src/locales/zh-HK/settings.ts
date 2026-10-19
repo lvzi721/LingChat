@@ -1238,6 +1238,10 @@ export default {
       ackMissing: "未生成，撳「保存並套用」",
       ackPreview: "試聽應答",
       lastWake: "最近喚醒",
+      diagnostics: "喚醒診斷",
+      refresh: "刷新",
+      pendingText: "待補發文字",
+      ackAudio: "應答語音",
       mediaKeyHint:
         "開啟後，單擊藍牙耳機播放鍵即可叫出 LingChat（應答 + 本地識別）。注意：開啟期間音樂 App 收唔到呢個播放鍵。",
       tileHint: "亦可以喺通知欄編輯加入「LingChat 語音」磁貼，任何 App 喺前台都可以一鍵喚醒。",

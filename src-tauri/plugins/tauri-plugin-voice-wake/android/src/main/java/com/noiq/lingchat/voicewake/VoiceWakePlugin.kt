@@ -195,6 +195,9 @@ class VoiceWakePlugin(private val hostActivity: Activity) : Plugin(hostActivity)
         VoiceWakeService.lastDetectionTranscript?.let {
             out.put("lastDetectionTranscript", it)
         }
+        VoiceWakeService.pendingText?.let { out.put("pendingText", it) }
+        VoiceWakeService.ackAudioPath?.let { out.put("ackAudioPath", it) }
+        out.put("ackAudioReady", VoiceWakeService.isAckAudioReady())
         VoiceWakeService.lastError?.let { out.put("lastError", it) }
         return out
     }

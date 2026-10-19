@@ -1265,6 +1265,10 @@ export default {
       ackMissing: "未生成（「保存して適用」を押してください）",
       ackPreview: "応答を試聴",
       lastWake: "最終ウェイク",
+      diagnostics: "ウェイク診断",
+      refresh: "更新",
+      pendingText: "未反映のテキスト",
+      ackAudio: "応答音声",
       mediaKeyHint:
         "ヘッドセットの再生キーを 1 回押すと LingChat を呼び出せます。有効中は音楽アプリにこのキーは渡りません。",
       tileHint:
