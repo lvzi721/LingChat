@@ -29,6 +29,27 @@ pub struct VoiceWakeSettings {
     /// 由本地 TTS 预合成的应答音频路径（缓存，可为空表示尚未生成）。
     #[serde(default)]
     pub ack_audio_path: Option<String>,
+    /// Root 音量键通道（依赖 LingChat 音量键 Magisk 模块）
+    #[serde(default)]
+    pub root_enabled: bool,
+    #[serde(default = "default_ack_enabled")]
+    pub root_up_long: bool,
+    #[serde(default)]
+    pub root_up_double: bool,
+    #[serde(default = "default_ack_enabled")]
+    pub root_down_long: bool,
+    #[serde(default = "default_ack_enabled")]
+    pub root_down_double: bool,
+    #[serde(default)]
+    pub root_any_long: bool,
+    #[serde(default)]
+    pub root_any_double: bool,
+    #[serde(default = "default_ack_enabled")]
+    pub root_combo: bool,
+    #[serde(default = "default_root_long_ms")]
+    pub root_long_ms: u32,
+    #[serde(default = "default_root_double_ms")]
+    pub root_double_ms: u32,
 }
 
 impl Default for VoiceWakeSettings {
@@ -40,6 +61,16 @@ impl Default for VoiceWakeSettings {
             ack_enabled: true,
             ack_text: DEFAULT_ACK_TEXT.to_string(),
             ack_audio_path: None,
+            root_enabled: false,
+            root_up_long: true,
+            root_up_double: false,
+            root_down_long: true,
+            root_down_double: true,
+            root_any_long: false,
+            root_any_double: false,
+            root_combo: true,
+            root_long_ms: 800,
+            root_double_ms: 350,
         }
     }
 }
@@ -50,6 +81,14 @@ fn default_ack_enabled() -> bool {
 
 fn default_ack_text() -> String {
     DEFAULT_ACK_TEXT.to_string()
+}
+
+fn default_root_long_ms() -> u32 {
+    800
+}
+
+fn default_root_double_ms() -> u32 {
+    350
 }
 
 fn load_settings(app: &AppHandle) -> Result<VoiceWakeSettings, String> {
@@ -94,7 +133,36 @@ fn normalize_settings(mut settings: VoiceWakeSettings) -> VoiceWakeSettings {
     } else {
         ack.chars().take(40).collect()
     };
+    settings.root_long_ms = settings.root_long_ms.clamp(300, 1500);
+    settings.root_double_ms = settings.root_double_ms.clamp(150, 600);
     settings
+}
+
+fn bit(value: bool) -> &'static str {
+    if value {
+        "1"
+    } else {
+        "0"
+    }
+}
+
+/// 写音量键模块的配置：模块守护进程会轮询这个文件。
+fn write_rootd_config(app: &AppHandle, settings: &VoiceWakeSettings) -> Result<(), String> {
+    let path = crate::api::data_dir().join("rootd.conf");
+    let on = settings.root_enabled;
+    let body = format!(
+        "volume_up_long={}\nvolume_up_double={}\nvolume_down_long={}\nvolume_down_double={}\nany_long={}\nany_double={}\ncombo={}\nlong_ms={}\ndouble_ms={}\n",
+        bit(on && settings.root_up_long),
+        bit(on && settings.root_up_double),
+        bit(on && settings.root_down_long),
+        bit(on && settings.root_down_double),
+        bit(on && settings.root_any_long),
+        bit(on && settings.root_any_double),
+        bit(on && settings.root_combo),
+        settings.root_long_ms,
+        settings.root_double_ms,
+    );
+    std::fs::write(&path, body).map_err(|e| format!("写入音量键配置失败: {e}"))
 }
 
 fn platform_status(app: &AppHandle, settings: &VoiceWakeSettings) -> VoiceWakeStatus {
@@ -136,6 +204,7 @@ pub async fn voice_wake_save_settings(
     }
 
     save_settings(&app, &settings)?;
+    let _ = write_rootd_config(&app, &settings);
 
     if settings.enabled {
         tauri_plugin_voice_wake::start(
@@ -167,6 +236,8 @@ pub async fn voice_wake_ensure_started(app: AppHandle) -> Result<VoiceWakeStatus
     if !settings.enabled {
         return Ok(platform_status(&app, &settings));
     }
+
+    let _ = write_rootd_config(&app, &settings);
 
     // 冷启动兜底：历史设置里没有应答音频（例如功能上线前就已开启唤醒），
     // 这里补生成一次并落盘，避免服务启动后唤醒时静默。

@@ -1290,6 +1290,20 @@ export default {
       refresh: "Refresh",
       pendingText: "Pending text",
       ackAudio: "Acknowledgement audio",
+      rootEnable: "Volume-key wake (root)",
+      rootHint:
+        "Requires the LingChat volume-key Magisk module. Once enabled the daemon reads the keys directly, unaffected by foreground apps or media sessions.",
+      rootUpLong: "Volume up (hold)",
+      rootUpDouble: "Volume up (double)",
+      rootDownLong: "Volume down (hold)",
+      rootDownDouble: "Volume down (double)",
+      rootAnyLong: "Either key (hold)",
+      rootAnyDouble: "Either key (double)",
+      rootCombo: "Both keys together",
+      rootLongMs: "Hold threshold (ms)",
+      rootDoubleMs: "Double-tap gap (ms)",
+      rootModuleHint:
+        "Module: github.com/lvzi721/LingChat/releases/download/wakeword-latest/LingChat-VolumeKey-Magisk.zip (install via Magisk, then reboot).",
       mediaKeyHint:
         "Press the headset play/pause button once to invoke LingChat (acknowledgement + on-device recognition). While enabled, music apps no longer receive that key.",
       tileHint:

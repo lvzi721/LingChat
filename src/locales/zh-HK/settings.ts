@@ -1242,6 +1242,20 @@ export default {
       refresh: "刷新",
       pendingText: "待補發文字",
       ackAudio: "應答語音",
+      rootEnable: "音量鍵喚醒（Root）",
+      rootHint:
+        "需要先安裝 LingChat 音量鍵 Magisk 模組。開啟後由模組直接讀取音量鍵，唔受前台 App 同媒體會話影響。",
+      rootUpLong: "音量上 長按",
+      rootUpDouble: "音量上 雙擊",
+      rootDownLong: "音量下 長按",
+      rootDownDouble: "音量下 雙擊",
+      rootAnyLong: "任意音量鍵 長按",
+      rootAnyDouble: "任意音量鍵 雙擊",
+      rootCombo: "音量上+下 同時按",
+      rootLongMs: "長按閾值(ms)",
+      rootDoubleMs: "雙擊間隔(ms)",
+      rootModuleHint:
+        "模組下載：github.com/lvzi721/LingChat/releases/download/wakeword-latest/LingChat-VolumeKey-Magisk.zip（Magisk → 模組 → 從本機安裝，重啟生效）",
       mediaKeyHint:
         "開啟後，單擊藍牙耳機播放鍵即可叫出 LingChat（應答 + 本地識別）。注意：開啟期間音樂 App 收唔到呢個播放鍵。",
       tileHint: "亦可以喺通知欄編輯加入「LingChat 語音」磁貼，任何 App 喺前台都可以一鍵喚醒。",

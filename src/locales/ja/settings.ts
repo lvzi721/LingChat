@@ -1269,6 +1269,20 @@ export default {
       refresh: "更新",
       pendingText: "未反映のテキスト",
       ackAudio: "応答音声",
+      rootEnable: "音量キーでウェイク（root）",
+      rootHint:
+        "LingChat 音量キー Magisk モジュールが必要です。有効にするとデーモンが音量キーを直接読み取ります。",
+      rootUpLong: "音量上 長押し",
+      rootUpDouble: "音量上 2 回押し",
+      rootDownLong: "音量下 長押し",
+      rootDownDouble: "音量下 2 回押し",
+      rootAnyLong: "どちらか 長押し",
+      rootAnyDouble: "どちらか 2 回押し",
+      rootCombo: "上下同時押し",
+      rootLongMs: "長押し判定(ms)",
+      rootDoubleMs: "2 回押し間隔(ms)",
+      rootModuleHint:
+        "モジュール: github.com/lvzi721/LingChat/releases/download/wakeword-latest/LingChat-VolumeKey-Magisk.zip（Magisk でインストール後再起動）",
       mediaKeyHint:
         "ヘッドセットの再生キーを 1 回押すと LingChat を呼び出せます。有効中は音楽アプリにこのキーは渡りません。",
       tileHint:

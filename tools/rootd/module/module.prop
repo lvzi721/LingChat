@@ -1,0 +1,7 @@
+id=lingchat-volume-key
+name=LingChat Volume Key Wake
+version=v1.0
+versionCode=1
+author=LingChat
+description=Reads volume keys and wakes LingChat. Gesture settings are managed inside the LingChat app.
+

@@ -259,6 +259,59 @@
           {{ wakeStatus.ackAudioPath }}
         </div>
       </div>
+
+      <div class="mt-4 border-t border-white/10 pt-4">
+        <Toggle
+          :checked="wakeSettings.rootEnabled"
+          :disabled="wakeBusy"
+          @change="(v: boolean) => (wakeSettings.rootEnabled = v)"
+        >
+          <span class="font-medium">{{ t("settings.asr.wake.rootEnable") }}</span>
+          <span class="mt-0.5 block text-sm text-gray-300">{{
+            t("settings.asr.wake.rootHint")
+          }}</span>
+        </Toggle>
+
+        <template v-if="wakeSettings.rootEnabled">
+          <div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            <label v-for="g in rootGestures" :key="g.key" class="flex items-center gap-2">
+              <input
+                type="checkbox"
+                v-model="wakeSettings[g.key]"
+                class="h-4 w-4 accent-(--accent-color)"
+              />
+              <span>{{ g.label }}</span>
+            </label>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-4 text-sm">
+            <label class="flex items-center gap-2">
+              <span>{{ t("settings.asr.wake.rootLongMs") }}</span>
+              <input
+                v-model.number="wakeSettings.rootLongMs"
+                type="number"
+                min="300"
+                max="1500"
+                step="50"
+                class="shadow-glass focus:border-brand w-24 rounded-lg border border-white/10
+                  bg-white/10 px-2 py-1.5 text-sm text-white focus:outline-none"
+              />
+            </label>
+            <label class="flex items-center gap-2">
+              <span>{{ t("settings.asr.wake.rootDoubleMs") }}</span>
+              <input
+                v-model.number="wakeSettings.rootDoubleMs"
+                type="number"
+                min="150"
+                max="600"
+                step="10"
+                class="shadow-glass focus:border-brand w-24 rounded-lg border border-white/10
+                  bg-white/10 px-2 py-1.5 text-sm text-white focus:outline-none"
+              />
+            </label>
+          </div>
+          <p class="mt-2 text-xs text-gray-400">{{ t("settings.asr.wake.rootModuleHint") }}</p>
+        </template>
+      </div>
     </section>
 
     <!-- 自动语音识别开关 -->
@@ -508,7 +561,7 @@
   const localSettings = ref<AsrSettings>(JSON.parse(JSON.stringify(asrStore.settings)));
   const lastTestResult = ref<{ ok: boolean; text: string } | null>(null);
   // 构建标识：用来确认手机上跑的是哪一版（排查"装了但没生效"）
-  const WAKE_BUILD_TAG = "2026-10-20-B2";
+  const WAKE_BUILD_TAG = "2026-10-25-C1";
   const wakeSettings = ref<VoiceWakeSettings>({
     enabled: false,
     phrase: "灵灵",
@@ -516,6 +569,16 @@
     ackEnabled: true,
     ackText: "我在",
     ackAudioPath: null,
+    rootEnabled: false,
+    rootUpLong: true,
+    rootUpDouble: false,
+    rootDownLong: true,
+    rootDownDouble: true,
+    rootAnyLong: false,
+    rootAnyDouble: false,
+    rootCombo: true,
+    rootLongMs: 800,
+    rootDoubleMs: 350,
   });
   const ackNotice = ref("");
   const wakeStatus = ref<VoiceWakeStatus>({
@@ -545,6 +608,15 @@
       ? new Date(wakeStatus.value.lastDetectionAt).toLocaleTimeString()
       : ""
   );
+  const rootGestures = computed(() => [
+    { key: "rootUpLong" as const, label: t("settings.asr.wake.rootUpLong") },
+    { key: "rootUpDouble" as const, label: t("settings.asr.wake.rootUpDouble") },
+    { key: "rootDownLong" as const, label: t("settings.asr.wake.rootDownLong") },
+    { key: "rootDownDouble" as const, label: t("settings.asr.wake.rootDownDouble") },
+    { key: "rootAnyLong" as const, label: t("settings.asr.wake.rootAnyLong") },
+    { key: "rootAnyDouble" as const, label: t("settings.asr.wake.rootAnyDouble") },
+    { key: "rootCombo" as const, label: t("settings.asr.wake.rootCombo") },
+  ]);
   const asrTestResult = ref("");
 
   let saveTimer: number | null = null;
@@ -611,11 +683,7 @@
         }
       }
       const status = await voiceWakeSaveSettings({
-        enabled: wakeSettings.value.enabled,
-        phrase: wakeSettings.value.phrase,
-        phraseEnabled: wakeSettings.value.phraseEnabled,
-        ackEnabled: wakeSettings.value.ackEnabled,
-        ackText: wakeSettings.value.ackText,
+        ...wakeSettings.value,
         ackAudioPath,
       });
       wakeStatus.value = status;
@@ -673,11 +741,7 @@
       // 避免"试听正常但唤醒时仍无应答"（服务里还是旧路径）。
       wakeSettings.value.ackAudioPath = path;
       const status = await voiceWakeSaveSettings({
-        enabled: wakeSettings.value.enabled,
-        phrase: wakeSettings.value.phrase,
-        phraseEnabled: wakeSettings.value.phraseEnabled,
-        ackEnabled: wakeSettings.value.ackEnabled,
-        ackText: wakeSettings.value.ackText,
+        ...wakeSettings.value,
         ackAudioPath: path,
       });
       wakeStatus.value = status;

@@ -9,6 +9,16 @@ export interface VoiceWakeSettings {
   ackEnabled: boolean;
   ackText: string;
   ackAudioPath?: string | null;
+  rootEnabled: boolean;
+  rootUpLong: boolean;
+  rootUpDouble: boolean;
+  rootDownLong: boolean;
+  rootDownDouble: boolean;
+  rootAnyLong: boolean;
+  rootAnyDouble: boolean;
+  rootCombo: boolean;
+  rootLongMs: number;
+  rootDoubleMs: number;
 }
 
 export interface VoiceWakeStatus {
@@ -51,6 +61,16 @@ const DEFAULT_SETTINGS: VoiceWakeSettings = {
   ackEnabled: true,
   ackText: "我在",
   ackAudioPath: null,
+  rootEnabled: false,
+  rootUpLong: true,
+  rootUpDouble: false,
+  rootDownLong: true,
+  rootDownDouble: true,
+  rootAnyLong: false,
+  rootAnyDouble: false,
+  rootCombo: true,
+  rootLongMs: 800,
+  rootDoubleMs: 350,
 };
 
 let channel: Channel<VoiceWakeDetectedEvent> | null = null;

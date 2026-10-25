@@ -146,19 +146,31 @@ jobs:
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
 
+      - name: 构建音量键 Magisk 模块
+        run: |
+          NDK_ROOT=$(ls -d "$ANDROID_HOME"/ndk/* 2>/dev/null | sort -V | tail -1)
+          if [ -z "$NDK_ROOT" ]; then NDK_ROOT="$ANDROID_NDK_HOME"; fi
+          CC="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
+          "$CC" -O2 -o tools/rootd/lingchat-rootd tools/rootd/lingchat-rootd.c
+          bash scripts/build-rootd-module.sh artifacts
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+
       - name: 发布到固定 Release
         run: |
           APK_PATH="src-tauri/gen/android/app/build/outputs/apk/universal/release/$ASSET_NAME"
+          ZIP_PATH="artifacts/LingChat-VolumeKey-Magisk.zip"
           if gh release view "$RELEASE_TAG" &>/dev/null; then
             echo "更新已有 Release：$RELEASE_TAG"
-            gh release upload "$RELEASE_TAG" "$APK_PATH" --clobber
+            gh release upload "$RELEASE_TAG" "$APK_PATH" "$ZIP_PATH" --clobber
           else
             echo "创建 Release：$RELEASE_TAG"
-            gh release create "$RELEASE_TAG" "$APK_PATH" \
+            gh release create "$RELEASE_TAG" "$APK_PATH" "$ZIP_PATH" \
               --title "LingChat 唤醒词测试版（自动构建）" \
               --prerelease \
               --notes "由 build-wake-word-release.yml 自动构建并覆盖更新。提交：$GITHUB_SHA"
           fi
           echo "下载地址：https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/$ASSET_NAME"
+          echo "模块地址：https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/LingChat-VolumeKey-Magisk.zip"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
