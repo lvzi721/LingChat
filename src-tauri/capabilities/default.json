@@ -28,7 +28,7 @@
     "dialog:default",
     "notification:default",
     "android-fs:allow-get-name",
-    "voice-wake:allow-register-listener",
+    "voice-wake:allow-registerListener",
     {
       "identifier": "fs:scope",
       "allow": [{ "path": "$RESOURCE/**" }, { "path": "$APPCACHE/**" }, { "path": "$APPDATA/**" }]
