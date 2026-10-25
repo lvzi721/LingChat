@@ -1,4 +1,5 @@
 // LingChat root volume-key daemon.
+// Build: NDK aarch64 clang, see .github/workflows/build-rootd-only.yml
 //
 // Reads /dev/input/event* directly (root), recognises configurable volume-key
 // gestures, and starts LingChat's foreground wake service via `am`.

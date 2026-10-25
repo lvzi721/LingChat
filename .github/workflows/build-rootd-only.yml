@@ -2,6 +2,11 @@ name: 构建音量键模块
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - "tools/rootd/**"
+      - "scripts/build-rootd-module.sh"
+      - ".github/workflows/build-rootd-only.yml"
 
 jobs:
   build:
