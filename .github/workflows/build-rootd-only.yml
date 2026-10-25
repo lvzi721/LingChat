@@ -1,0 +1,32 @@
+name: 构建音量键模块
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 编译守护进程
+        run: |
+          set -x
+          NDK_ROOT=$(ls -d "$ANDROID_HOME"/ndk/* 2>/dev/null | sort -V | tail -1)
+          echo "NDK_ROOT=$NDK_ROOT"
+          ls "$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin" | grep aarch64 | head -20
+          CC="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
+          echo "CC=$CC"
+          "$CC" --version || true
+          "$CC" -O2 -o tools/rootd/lingchat-rootd tools/rootd/lingchat-rootd.c
+
+      - name: 打包模块
+        run: bash scripts/build-rootd-module.sh artifacts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lingchat-volume-key-module
+          path: artifacts/*.zip
+          retention-days: 7
+
