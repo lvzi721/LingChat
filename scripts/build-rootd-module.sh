@@ -12,6 +12,7 @@ if [ ! -x "$BIN" ]; then
 fi
 
 mkdir -p "$OUT"
+OUT="$(cd "$OUT" && pwd)"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 
