@@ -1,4 +1,5 @@
 const COMMANDS: &[&str] = &[
+    "registerListener",
     "start",
     "stop",
     "status",

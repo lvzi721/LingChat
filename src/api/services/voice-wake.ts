@@ -112,7 +112,9 @@ function startDetectionPolling(): void {
 export async function ensureVoiceWakeListener(): Promise<void> {
   if (!isAndroid()) return;
   startDetectionPolling();
-  void ensureRecognizedChannel();
+  void ensureRecognizedChannel().catch((error) => {
+    console.warn("[VoiceWake] 注册原生识别事件失败:", error);
+  });
   if (channel) return;
   if (listenerPromise) return listenerPromise;
 
