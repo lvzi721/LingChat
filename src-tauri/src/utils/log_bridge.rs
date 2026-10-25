@@ -30,6 +30,16 @@ pub fn get_log_history() -> Vec<LogEntry> {
     buffer.iter().cloned().collect()
 }
 
+/// 将前端启动错误写入现有 Rust 日志，便于在透明或空白 WebView 中定位问题。
+#[tauri::command]
+pub fn frontend_report_error(level: String, message: String) {
+    match level.as_str() {
+        "warn" => tracing::warn!(target: "ling_chat_lib::frontend", "{}", message),
+        "info" => tracing::info!(target: "ling_chat_lib::frontend", "{}", message),
+        _ => tracing::error!(target: "ling_chat_lib::frontend", "{}", message),
+    }
+}
+
 /// 打开独立日志窗口；已存在时聚焦（仅桌面端，移动端为 no-op）。
 #[tauri::command]
 #[cfg_attr(not(desktop), allow(unused_variables))]

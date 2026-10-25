@@ -1,5 +1,5 @@
 <template>
-  <div class="relative h-full w-full overflow-hidden" :class="panelClass">
+  <div data-lingchat-main-menu class="relative h-full w-full overflow-hidden" :class="panelClass">
     <MainChat v-if="currentPage === 'gameMainView'" />
     <Settings v-else-if="currentPage === 'settings'" />
     <Save v-else-if="currentPage === 'save'" />

@@ -676,6 +676,7 @@ pub fn run() {
         .plugin(tauri_plugin_shizuku::init())
         .invoke_handler(tauri::generate_handler![
             utils::log_bridge::get_log_history,
+            utils::log_bridge::frontend_report_error,
             utils::log_bridge::open_log_window,
             utils::log_bridge::is_log_window_open,
             api::plugins::plugin_list,
